@@ -1,157 +1,66 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reservas · Celda de Manufactura</title>
-<style>
-:root{--bg:#f6f7f9;--c:#fff;--t:#1d2430;--m:#6b7482;--b:#dde1e7;--ac:#0b5fff;--oc:#fde2e2;--ot:#9b1c1c;--bl:#e4e6ea;--ok:#e6f6ec}
-@media(prefers-color-scheme:dark){:root{--bg:#14171c;--c:#1d2229;--t:#e8ebf0;--m:#98a2b3;--b:#313945;--ac:#5b8cff;--oc:#4a2327;--ot:#ffb4b4;--bl:#2a2f38;--ok:#1d3a28}}
-*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--t)}
-main{max-width:1000px;margin:auto;padding:16px}h1{font-size:20px;margin:0 0 2px}.sub{color:var(--m);margin:0 0 14px}
-.card{background:var(--c);border:1px solid var(--b);border-radius:10px;padding:14px;margin-bottom:14px}
-.nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-button,input,select{font:inherit;color:var(--t);background:var(--c);border:1px solid var(--b);border-radius:8px;padding:8px 10px}
-button{cursor:pointer}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
-.w{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:560px}
-th,td{border:1px solid var(--b);padding:4px 6px;text-align:center;font-size:13px}th{background:var(--bl)}
-td.h{width:60px;color:var(--m);background:var(--bl)}td.l{cursor:pointer}td.l:hover{outline:2px solid var(--ac)}
-td.o{background:var(--oc);color:var(--ot);cursor:pointer}td.x{background:var(--bl);color:var(--m)}
-.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}label{display:block;font-size:13px;color:var(--m)}
-label input,label select{width:100%;margin-top:3px}.eq{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
-.eq label{display:flex;gap:5px;align-items:center;color:var(--t)}.eq input{width:auto;margin:0}
-.msg{padding:10px;border-radius:8px;margin-top:10px;background:var(--ok)}.msg.e{background:var(--oc);color:var(--ot)}
-.msg b{font-size:20px;letter-spacing:3px}li{margin:4px 0}.can{text-decoration:line-through;color:var(--m)}
-</style></head><body><main>
-<h1>Reservas · Celda de Manufactura</h1>
-<p class="sub" id="modo"></p>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservas · Celda de Manufactura</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Reservas · Celda de Manufactura</h1>
+    <p class="sub" id="modo"></p>
 
-<div class="card nav">
- <button id="prev">◀</button><input type="date" id="fecha"><button id="next">▶</button><button id="hoy">Hoy</button>
- <span class="sub" style="margin:0">Rojo = ocupado · Gris = no disponible · Toca una celda libre para apartar</span>
-</div>
+    <!-- Selector de fecha -->
+    <div class="card nav">
+      <button id="prev">◀</button>
+      <input type="date" id="fecha">
+      <button id="next">▶</button>
+      <button id="hoy">Hoy</button>
+      <span class="sub" style="margin:0">Rojo = ocupado · Gris = no disponible · Toca una celda libre para apartar</span>
+    </div>
 
-<div class="card w"><table id="grid"></table></div>
+    <!-- Calendario del día (se dibuja desde app.js) -->
+    <div class="card w">
+      <table id="grid"></table>
+    </div>
 
-<div class="card"><b>Apartar</b>
- <div class="g" style="margin-top:8px">
-  <label>Nombre completo<input id="nombre" autocomplete="name"></label>
-  <label>Matrícula<input id="matricula"></label>
-  <label>Hora de inicio<select id="inicio"></select></label>
-  <label>Duración<select id="dur"></select></label>
- </div>
- <div class="eq" id="eq"></div>
- <button class="p" id="apartar">Apartar</button><div id="out"></div>
-</div>
+    <!-- Formulario para apartar -->
+    <div class="card">
+      <b>Apartar</b>
+      <div class="g" style="margin-top:8px">
+        <label>Nombre completo <input id="nombre" autocomplete="name"></label>
+        <label>Matrícula <input id="matricula"></label>
+        <label>Hora de inicio <select id="inicio"></select></label>
+        <label>Duración <select id="dur"></select></label>
+      </div>
+      <div class="eq" id="eq"></div>
+      <button class="p" id="apartar">Apartar</button>
+      <div id="out"></div>
+    </div>
 
-<div class="card" id="cancelCard" hidden><b>Cancelar reserva</b>
- <p id="cinfo" class="sub"></p>
- <div class="g"><label>Matrícula<input id="cmat"></label><label>Código de cancelación<input id="ccod"></label></div>
- <p style="margin:10px 0 0"><button id="cancelar">Cancelar reserva</button> <button id="cerrar">Cerrar</button></p><div id="cout"></div>
-</div>
+    <!-- Cancelar (aparece al tocar una celda roja) -->
+    <div class="card" id="cancelCard" hidden>
+      <b>Cancelar reserva</b>
+      <p id="cinfo" class="sub"></p>
+      <div class="g">
+        <label>Matrícula <input id="cmat"></label>
+        <label>Código de cancelación <input id="ccod"></label>
+      </div>
+      <p style="margin:10px 0 0">
+        <button id="cancelar">Cancelar reserva</button>
+        <button id="cerrar">Cerrar</button>
+      </p>
+      <div id="cout"></div>
+    </div>
 
-<div class="card"><b>Reservas del día</b><ul id="lista"></ul></div>
-</main>
-<script>
-/* ===== CONFIGURACIÓN ===== */
-const CFG={
- API_URL:'',               // Vacío = modo local. Pega aquí la URL del Apps Script para usar Google Sheets.
- HORA_INI:'08:00', HORA_FIN:'20:00',
- MAX_BLOQUES:3,            // bloques de 30 min (3 = 1 h 30 min)
- ADMIN_LOCAL:'maestro123', // código del maestro (solo modo local; en Sheets va en el script)
- EQUIPOS:['CNC','Banda','Robot','Cortadora','Herramientas'],
- BLOQUEOS:[]               // modo local. Ej: {fecha:'2026-10-28',inicio:'08:00',fin:'12:00',motivo:'Clase'}
-};
-const CC='Celda completa';
-/* ===== UTILIDADES ===== */
-const $=s=>document.querySelector(s);
-const m=h=>{const[a,b]=h.split(':');return+a*60+ +b};
-const hh=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
-const p2=n=>String(n).padStart(2,'0');
-const fmt=d=>d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
-const hoy=()=>fmt(new Date());
-const ahora=()=>{const d=new Date();return fmt(d)+' '+p2(d.getHours())+':'+p2(d.getMinutes())};
-const sumDia=(f,n)=>{const d=new Date(f+'T12:00');d.setDate(d.getDate()+n);return fmt(d)};
-const choca=(a,b)=>a.includes(CC)||b.includes(CC)||a.some(x=>b.includes(x));
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function validar(r,res,blq){
- if(!r.nombre||r.nombre.trim().length<3)return'Escribe tu nombre completo.';
- if(!r.matricula||r.matricula.trim().length<4)return'Escribe tu matrícula.';
- if(!r.equipos.length)return'Elige al menos una parte de la celda.';
- const i=m(r.inicio),f=m(r.fin);
- if(f-i<30||f-i>30*CFG.MAX_BLOQUES)return'Duración máxima: '+CFG.MAX_BLOQUES*30+' minutos.';
- if(i<m(CFG.HORA_INI)||f>m(CFG.HORA_FIN))return'Fuera del horario de la celda.';
- if(r.fecha+' '+r.inicio<ahora())return'Ese horario ya pasó.';
- for(const b of blq)if(b.fecha===r.fecha&&i<m(b.fin)&&f>m(b.inicio))return'Horario no disponible: '+(b.motivo||'bloqueado');
- for(const x of res)if(x.estado==='Activa'&&x.fecha===r.fecha&&i<m(x.fin)&&f>m(x.inicio)&&choca(x.equipos,r.equipos))
-  return'Ya está ocupado ('+x.equipos.join(', ')+' de '+x.inicio+' a '+x.fin+').';
- return null}
-/* ===== ALMACENAMIENTO ===== */
-const LS='reservas_celda_v1';
-const load=()=>{try{return JSON.parse(localStorage.getItem(LS))||[]}catch(e){return[]}};
-const save=a=>localStorage.setItem(LS,JSON.stringify(a));
-const Local={
- async list(){return{res:load().map(({matricula,pin,...x})=>x),blq:CFG.BLOQUEOS}},
- async create(r){const all=load(),e=validar(r,all,CFG.BLOQUEOS);if(e)return{error:e};
-  const x={...r,id:Date.now().toString(36),pin:String(1000+Math.floor(Math.random()*9000)),estado:'Activa'};
-  all.push(x);save(all);return{ok:1,pin:x.pin}},
- async cancel(o){const all=load(),x=all.find(y=>y.id===o.id&&y.estado==='Activa');if(!x)return{error:'Reserva no encontrada.'};
-  const adm=o.codigo.trim()===CFG.ADMIN_LOCAL;
-  if(!adm&&!(x.matricula.toLowerCase()===o.matricula.trim().toLowerCase()&&x.pin===o.codigo.trim()))return{error:'Matrícula o código incorrectos.'};
-  x.estado='Cancelada';save(all);return{ok:1}}};
-const Remote={
- async list(){return(await fetch(CFG.API_URL+'?action=list')).json()},
- async post(o){return(await fetch(CFG.API_URL,{method:'POST',body:JSON.stringify(o)})).json()},
- create(r){return this.post({action:'create',...r})},
- cancel(o){return this.post({action:'cancel',...o})}};
-const api=CFG.API_URL?Remote:Local;
-/* ===== INTERFAZ ===== */
-let fecha=hoy(),D={res:[],blq:[]},selId=null;
-$('#modo').textContent=CFG.API_URL?'Conectado a Google Sheets · datos compartidos':'Modo local de pruebas · los datos solo se guardan en este navegador';
-const slots=[];for(let t=m(CFG.HORA_INI);t<m(CFG.HORA_FIN);t+=30)slots.push(t);
-$('#inicio').innerHTML=slots.map(t=>`<option>${hh(t)}</option>`).join('');
-$('#dur').innerHTML=Array.from({length:CFG.MAX_BLOQUES},(_,i)=>`<option value="${i+1}">${(i+1)*30} min</option>`).join('');
-$('#eq').innerHTML=[CC,...CFG.EQUIPOS].map(e=>`<label><input type="checkbox" value="${e}">${e}</label>`).join('');
-const checks=()=>[...document.querySelectorAll('#eq input')];
-const day=()=>D.res.filter(x=>x.fecha===fecha);
-function render(){
- $('#fecha').value=fecha;
- const act=day().filter(x=>x.estado==='Activa'),bl=D.blq.filter(b=>b.fecha===fecha),now=ahora();
- let h='<tr><th></th>'+CFG.EQUIPOS.map(e=>`<th>${e}</th>`).join('')+'</tr>';
- for(const t of slots){h+=`<tr><td class="h">${hh(t)}</td>`;
-  for(const e of CFG.EQUIPOS){
-   const x=act.find(y=>m(y.inicio)<=t&&t<m(y.fin)&&choca(y.equipos,[e]));
-   if(x)h+=`<td class="o" data-id="${x.id}">${m(x.inicio)===t?esc(x.nombre.split(' ')[0]):'·'}</td>`;
-   else if(bl.some(b=>m(b.inicio)<=t&&t<m(b.fin)))h+='<td class="x">—</td>';
-   else if(fecha+' '+hh(t)<now)h+='<td class="x"></td>';
-   else h+=`<td class="l" data-t="${hh(t)}" data-e="${e}"></td>`}
-  h+='</tr>'}
- $('#grid').innerHTML=h;
- $('#lista').innerHTML=day().sort((a,b)=>a.inicio.localeCompare(b.inicio)).map(x=>
-  `<li class="${x.estado==='Activa'?'':'can'}">${x.inicio}–${x.fin} · ${esc(x.equipos.join(', '))} · ${esc(x.nombre)}${x.estado==='Activa'?'':' (cancelado)'}</li>`).join('')
-  ||'<li class="sub">Sin reservas este día.</li>';
- bl.forEach(b=>$('#lista').insertAdjacentHTML('afterbegin',`<li class="sub">${b.inicio}–${b.fin} · No disponible: ${esc(b.motivo||'bloqueado')}</li>`));
-}
-async function cargar(){try{D=await api.list();if(!D.res)throw 0}catch(e){D={res:[],blq:[]};$('#out').innerHTML='<div class="msg e">No se pudo leer los datos.</div>'}render()}
-$('#grid').onclick=ev=>{const td=ev.target.closest('td');if(!td)return;
- if(td.dataset.t){$('#inicio').value=td.dataset.t;checks().forEach(c=>c.checked=c.value===td.dataset.e);$('#nombre').focus()}
- else if(td.dataset.id){selId=td.dataset.id;const x=D.res.find(y=>y.id===selId);
-  $('#cinfo').textContent=`${x.nombre} · ${x.equipos.join(', ')} · ${x.inicio}–${x.fin}`;$('#cancelCard').hidden=false;$('#cout').innerHTML='';$('#cmat').focus()}};
-$('#apartar').onclick=async()=>{
- const i=$('#inicio').value,r={nombre:$('#nombre').value,matricula:$('#matricula').value,fecha,inicio:i,
-  fin:hh(m(i)+30*$('#dur').value),equipos:checks().filter(c=>c.checked).map(c=>c.value)};
- if(r.equipos.includes(CC))r.equipos=[CC];
- $('#out').innerHTML='';const e=validar(r,D.res.filter(x=>x.estado==='Activa'),D.blq);
- if(e)return $('#out').innerHTML=`<div class="msg e">${e}</div>`;
- $('#apartar').disabled=true;let s;try{s=await api.create(r)}catch(x){s={error:'Sin conexión con el servidor.'}}
- $('#apartar').disabled=false;
- $('#out').innerHTML=s.error?`<div class="msg e">${esc(s.error)}</div>`:
-  `<div class="msg">¡Listo! Tu código de cancelación es <b>${s.pin}</b>. Guárdalo: lo necesitas junto con tu matrícula para cancelar.</div>`;
- if(!s.error)$('#nombre').value=$('#matricula').value='';
- cargar()};
-$('#cancelar').onclick=async()=>{
- let s;try{s=await api.cancel({id:selId,matricula:$('#cmat').value,codigo:$('#ccod').value})}catch(x){s={error:'Sin conexión con el servidor.'}}
- $('#cout').innerHTML=s.error?`<div class="msg e">${esc(s.error)}</div>`:'<div class="msg">Reserva cancelada. El horario quedó libre.</div>';
- if(!s.error){$('#ccod').value='';cargar()}};
-$('#cerrar').onclick=()=>$('#cancelCard').hidden=true;
-$('#fecha').onchange=e=>{fecha=e.target.value||hoy();render()};
-$('#prev').onclick=()=>{fecha=sumDia(fecha,-1);render()};$('#next').onclick=()=>{fecha=sumDia(fecha,1);render()};$('#hoy').onclick=()=>{fecha=hoy();render()};
-cargar();setInterval(cargar,60000);
-</script></body></html>
+    <!-- Lista del día -->
+    <div class="card">
+      <b>Reservas del día</b>
+      <ul id="lista"></ul>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

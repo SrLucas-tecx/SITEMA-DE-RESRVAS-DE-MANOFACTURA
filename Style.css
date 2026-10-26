@@ -1,0 +1,112 @@
+/* ===== Colores (claro y oscuro) ===== */
+:root {
+  --bg: #f6f7f9;   /* fondo de la página */
+  --c:  #fff;      /* fondo de tarjetas */
+  --t:  #1d2430;   /* texto */
+  --m:  #6b7482;   /* texto secundario */
+  --b:  #dde1e7;   /* bordes */
+  --ac: #0b5fff;   /* color principal */
+  --oc: #fde2e2;   /* fondo de ocupado */
+  --ot: #9b1c1c;   /* texto de ocupado */
+  --bl: #e4e6ea;   /* fondo de no disponible */
+  --ok: #e6f6ec;   /* fondo de mensaje correcto */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c;
+    --c:  #1d2229;
+    --t:  #e8ebf0;
+    --m:  #98a2b3;
+    --b:  #313945;
+    --ac: #5b8cff;
+    --oc: #4a2327;
+    --ot: #ffb4b4;
+    --bl: #2a2f38;
+    --ok: #1d3a28;
+  }
+}
+
+/* ===== Base ===== */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 15px system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--t);
+}
+
+main {
+  max-width: 1000px;
+  margin: auto;
+  padding: 16px;
+}
+
+h1 { font-size: 20px; margin: 0 0 2px; }
+.sub { color: var(--m); margin: 0 0 14px; }
+
+.card {
+  background: var(--c);
+  border: 1px solid var(--b);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ===== Controles ===== */
+button, input, select {
+  font: inherit;
+  color: var(--t);
+  background: var(--c);
+  border: 1px solid var(--b);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+button { cursor: pointer; }
+button.p { background: var(--ac); color: #fff; border-color: var(--ac); }
+
+label { display: block; font-size: 13px; color: var(--m); }
+label input, label select { width: 100%; margin-top: 3px; }
+
+.g {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+/* Casillas de equipos */
+.eq { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+.eq label { display: flex; gap: 5px; align-items: center; color: var(--t); }
+.eq input { width: auto; margin: 0; }
+
+/* ===== Calendario ===== */
+.w { overflow-x: auto; }
+
+table { border-collapse: collapse; width: 100%; min-width: 560px; }
+
+th, td {
+  border: 1px solid var(--b);
+  padding: 4px 6px;
+  text-align: center;
+  font-size: 13px;
+}
+
+th { background: var(--bl); }
+
+td.h { width: 60px; color: var(--m); background: var(--bl); }  /* columna de horas */
+td.l { cursor: pointer; }                                       /* libre */
+td.l:hover { outline: 2px solid var(--ac); }
+td.o { background: var(--oc); color: var(--ot); cursor: pointer; } /* ocupado */
+td.x { background: var(--bl); color: var(--m); }                /* no disponible */
+
+/* ===== Mensajes y lista ===== */
+.msg { padding: 10px; border-radius: 8px; margin-top: 10px; background: var(--ok); }
+.msg.e { background: var(--oc); color: var(--ot); }
+.msg b { font-size: 20px; letter-spacing: 3px; }
+
+li { margin: 4px 0; }
+.can { text-decoration: line-through; color: var(--m); }
