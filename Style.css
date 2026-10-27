@@ -148,6 +148,7 @@ tr.hora > td, tr.hora > th { border-top: 3px solid var(--linea2); }
 .enlinea.ok::before { animation: pulso 2s infinite; }
 .enlinea.mal { --punto: #ff5c5c; background: rgba(255, 92, 92, .25); }
 .enlinea.cargando, .enlinea.local { --punto: #f2b705; }
+.enlinea.viejo { --punto: #f2b705; background: rgba(242, 183, 5, .25); }
 @keyframes pulso { 50% { opacity: .35; } }
 
 /* ===== Días elegidos en el formulario ===== */

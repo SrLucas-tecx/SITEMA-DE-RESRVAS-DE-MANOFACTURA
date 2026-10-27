@@ -15,8 +15,11 @@ function mostrarConexion(ok) {
   const el = $('#enlinea');
   if (!CFG.API_URL) { el.className = 'enlinea local'; el.textContent = 'Modo local'; return; }
   const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-  el.className = 'enlinea ' + (ok ? 'ok' : 'mal');
-  el.textContent = ok ? 'En línea · actualizado ' + hora : 'Sin conexión · reintentando…';
+  const viejo = ok && estado.datos.version !== CFG.SCRIPT_VERSION;   // el script publicado no es el último
+  el.className = 'enlinea ' + (!ok ? 'mal' : viejo ? 'viejo' : 'ok');
+  el.textContent = !ok ? 'Sin conexión · reintentando…'
+    : viejo ? 'En línea, pero el script está desactualizado: falta crear la Versión nueva'
+    : 'En línea · actualizado ' + hora;
 }
 
 // Lee las reservas (de Sheets o local) y redibuja
