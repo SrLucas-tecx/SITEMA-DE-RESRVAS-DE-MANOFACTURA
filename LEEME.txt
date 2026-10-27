@@ -1,0 +1,20 @@
+RESERVAS · CELDA DE MANUFACTURA
+
+ESTRUCTURA (la carpeta js debe quedar JUNTO a index.html)
+  index.html
+  style.css
+  js/            (config, utils, estado, validacion, api, calendario, modales, main)
+  apps-script/Code.gs   (NO se sube a GitHub: se pega en Google Apps Script)
+
+PROBAR EN LA COMPU
+  1. Abre en VS Code la carpeta "reservas-celda" (Archivo > Abrir carpeta).
+  2. Clic derecho en index.html > Open with Live Server.
+  (Con doble clic no funciona: el navegador bloquea los módulos de JavaScript.)
+
+SUBIR A GITHUB
+  Sube index.html, style.css y la carpeta js completa a la raíz del repositorio.
+
+GOOGLE SHEETS
+  La URL del script está en js/config.js (API_URL).
+  Si cambias apps-script/Code.gs: Implementar > Administrar implementaciones > lápiz > Versión nueva.
+  Cambia ADMIN en Code.gs por el código real del maestro.
