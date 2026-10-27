@@ -1,11 +1,12 @@
-/* Calendario: leyenda de colores, tabla del día y lista de reservas */
+/* Calendario: elige la vista (día / semana / mes) y dibuja leyenda y lista del día */
 import { CFG } from './config.js';
-import { $, aMinutos, aHora, ahora, chocan, escapar } from './utils.js';
-import { estado, reservasDelDia } from './estado.js';
+import { $, escapar, nombreDia, nombreMes, inicioSemana, sumarDias } from './utils.js';
+import { estado, reservasDe } from './estado.js';
+import { htmlDia } from './vistaDia.js';
+import { htmlSemana } from './vistaSemana.js';
+import { htmlMes } from './vistaMes.js';
 
-// Bloques de 30 min del día: [480, 510, 540, ...]
-export const bloques = [];
-for (let t = aMinutos(CFG.HORA_INI); t < aMinutos(CFG.HORA_FIN); t += 30) bloques.push(t);
+const VISTAS = { dia: htmlDia, semana: htmlSemana, mes: htmlMes };
 
 // Leyenda: cuadrito de color + nombre de cada equipo
 export function dibujarLeyenda() {
@@ -14,67 +15,46 @@ export function dibujarLeyenda() {
     (CFG.NOTAS[e] ? ` <small>· ${CFG.NOTAS[e]}</small>` : '') + '</span>').join('');
 }
 
-export function dibujar() {
-  const { fecha, datos } = estado;
-  $('#fecha').value = fecha;
+function titulo() {
+  const f = estado.fecha;
+  if (estado.vista === 'mes') return nombreMes(f);
+  if (estado.vista === 'semana') return 'Semana del ' + inicioSemana(f) + ' al ' + sumarDias(inicioSemana(f), 6);
+  return nombreDia(f) + ' ' + f;
+}
 
-  const activas = reservasDelDia().filter(x => x.estado === 'Activa');
-  const bloqueosDia = datos.blq.filter(b => b.fecha === fecha);
-  const horaActual = ahora();
-
-  // Encabezado: una columna por equipo, con su color
-  let html = '<tr><th></th>' +
-    CFG.EQUIPOS.map(e => `<th style="border-top:4px solid ${CFG.COLORES[e]}">${e}</th>`).join('') + '</tr>';
-
-  // Una fila por cada bloque de 30 min
-  for (const t of bloques) {
-    html += `<tr><td class="h">${aHora(t)}</td>`;
-
-    for (const equipo of CFG.EQUIPOS) {
-      const ocupada = activas.find(y =>
-        aMinutos(y.inicio) <= t && t < aMinutos(y.fin) && chocan(y.equipos, [equipo]));
-      const bloqueado = bloqueosDia.some(b => aMinutos(b.inicio) <= t && t < aMinutos(b.fin));
-      const pasado = fecha + ' ' + aHora(t) < horaActual;
-
-      if (ocupada) {
-        // El nombre solo se muestra en el primer bloque de la reserva
-        const nombre = aMinutos(ocupada.inicio) === t ? escapar(ocupada.nombre.split(' ')[0]) : '·';
-        html += `<td class="o" style="background:${CFG.COLORES[equipo]}" data-id="${ocupada.id}">${nombre}</td>`;
-      } else if (bloqueado) {
-        html += '<td class="x">—</td>';
-      } else if (pasado) {
-        html += '<td class="x"></td>';
-      } else {
-        html += `<td class="l" data-t="${aHora(t)}" data-e="${equipo}"></td>`;
-      }
-    }
-    html += '</tr>';
-  }
-  $('#grid').innerHTML = html;
-
-  // Lista de reservas del día (las canceladas salen tachadas)
-  const filas = reservasDelDia()
+// Lista de reservas del día de referencia (las canceladas salen tachadas)
+function dibujarLista() {
+  $('#tituloLista').textContent = 'Reservas del ' + estado.fecha;
+  const filas = reservasDe(estado.fecha)
     .sort((a, b) => a.inicio.localeCompare(b.inicio))
     .map(x => {
-      const clase = x.estado === 'Activa' ? '' : 'can';
-      const nota = x.estado === 'Activa' ? '' : ' (cancelado)';
-      return `<li class="${clase}">${x.inicio}–${x.fin} · ${escapar(x.equipos.join(', '))} · ${escapar(x.nombre)}${nota}</li>`;
+      const activa = x.estado === 'Activa';
+      return `<li class="${activa ? '' : 'can'}">${x.inicio}–${x.fin} · ${escapar(x.equipos.join(', '))} · ${escapar(x.nombre)}` +
+        (x.otros ? `<br><small>Otros: ${escapar(x.otros)}</small>` : '') + (activa ? '' : ' (cancelado)') + '</li>';
     });
   $('#lista').innerHTML = filas.join('') || '<li class="sub">Sin reservas este día.</li>';
 
-  // Horarios bloqueados al inicio de la lista
-  bloqueosDia.forEach(b => {
+  estado.datos.blq.filter(b => b.fecha === estado.fecha).forEach(b => {
     $('#lista').insertAdjacentHTML('afterbegin',
       `<li class="sub">${b.inicio}–${b.fin} · No disponible: ${escapar(b.motivo || 'bloqueado')}</li>`);
   });
 }
 
-// Clic en una celda: libre -> alLibre(hora, equipo) · ocupada -> alOcupada(id)
-export function iniciarCalendario(alLibre, alOcupada) {
-  $('#grid').onclick = ev => {
-    const td = ev.target.closest('td');
-    if (!td) return;
-    if (td.dataset.t) alLibre(td.dataset.t, td.dataset.e);
-    else if (td.dataset.id) alOcupada(td.dataset.id);
+export function dibujar() {
+  $('#fecha').value = estado.fecha;
+  $('#tituloVista').textContent = titulo();
+  $('#vista').innerHTML = VISTAS[estado.vista]();
+  document.querySelectorAll('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === estado.vista));
+  dibujarLista();
+}
+
+// Clics: celda libre (día) · reserva ocupada · día (semana y mes)
+export function iniciarCalendario({ alLibre, alOcupada, alDia }) {
+  $('#vista').onclick = ev => {
+    const el = ev.target.closest('td, th');
+    if (!el) return;
+    if (el.dataset.t) alLibre(el.dataset.t, el.dataset.e);
+    else if (el.dataset.id) alOcupada(el.dataset.id);
+    else if (el.dataset.ir) alDia(el.dataset.ir);
   };
 }

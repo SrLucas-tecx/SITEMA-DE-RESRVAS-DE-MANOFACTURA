@@ -47,3 +47,30 @@ export function escapar(texto) {
   const mapa = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
   return String(texto).replace(/[&<>"]/g, c => mapa[c]);
 }
+
+/* ---------- Calendario: semanas, meses y nombres ---------- */
+const DIAS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+// Lunes de la semana de una fecha "YYYY-MM-DD"
+export function inicioSemana(fecha) {
+  const d = new Date(fecha + 'T12:00');
+  d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+  return formatoFecha(d);
+}
+
+// Mueve la fecha n meses (queda en el día 1 para evitar saltos raros)
+export function sumarMeses(fecha, n) {
+  const d = new Date(fecha + 'T12:00');
+  d.setDate(1);
+  d.setMonth(d.getMonth() + n);
+  return formatoFecha(d);
+}
+
+export const nombreDia = fecha => DIAS[(new Date(fecha + 'T12:00').getDay() + 6) % 7];
+export const nombresDias = () => DIAS;
+export const diaDelMes = fecha => Number(fecha.slice(8));
+export function nombreMes(fecha) {
+  const d = new Date(fecha + 'T12:00');
+  return MESES[d.getMonth()] + ' ' + d.getFullYear();
+}

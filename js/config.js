@@ -14,7 +14,6 @@ export const CFG = {
   // Cada equipo tiene su color. "Banda + Cámara" va junta porque solo se usan a la vez.
   EQUIPOS: ['Celda', 'Brazo', 'Banda + Cámara', 'Cortadora'],
   COLORES: { 'Celda': '#00D26A', 'Brazo': '#2BC5C5', 'Banda + Cámara': '#F2B705', 'Cortadora': '#B79CFF' },
-  NOTAS: { 'Cortadora': 'La usan sobre todo los de primer año' },
 
   // Solo modo local. Ej: { fecha: '2026-10-28', inicio: '08:00', fin: '12:00', motivo: 'Clase' }
   BLOQUEOS: []

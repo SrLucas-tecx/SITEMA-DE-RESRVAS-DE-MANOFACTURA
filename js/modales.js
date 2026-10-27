@@ -1,16 +1,18 @@
 /* Popups: apartar una reserva y cancelarla */
 import { CFG } from './config.js';
-import { $, aMinutos, aHora, escapar } from './utils.js';
+import { $, aMinutos, aHora, escapar, hoy } from './utils.js';
 import { validar } from './validacion.js';
 import { api } from './api.js';
 import { estado } from './estado.js';
-import { bloques } from './calendario.js';
+import { bloques } from './horario.js';
 
 const casillas = () => [...document.querySelectorAll('#eq input')];
 
 /* ---------- Abrir popups ---------- */
 // Con hora y equipo (clic en una celda libre) deja el formulario ya llenado
-export function abrirApartar(inicio, equipo) {
+export function abrirApartar(fecha, inicio, equipo) {
+  $('#fechaR').min = hoy();
+  $('#fechaR').value = fecha || estado.fecha;
   if (inicio) {
     $('#inicio').value = inicio;
     casillas().forEach(c => c.checked = (c.value === equipo));
@@ -18,7 +20,6 @@ export function abrirApartar(inicio, equipo) {
   $('#formApartar').hidden = false;
   $('#exito').hidden = true;
   $('#out').innerHTML = '';
-  $('#resumen').textContent = 'Fecha: ' + estado.fecha;
   $('#modalApartar').showModal();
 }
 
@@ -36,7 +37,8 @@ async function apartar(recargar) {
   const r = {
     nombre: $('#nombre').value,
     matricula: $('#matricula').value,
-    fecha: estado.fecha,
+    fecha: $('#fechaR').value,
+    otros: $('#otros').value.trim(),
     inicio: inicio,
     fin: aHora(aMinutos(inicio) + 30 * $('#dur').value),
     equipos: casillas().filter(c => c.checked).map(c => c.value)
@@ -64,6 +66,7 @@ async function apartar(recargar) {
     $('#exito').hidden = false;
     $('#nombre').value = '';
     $('#matricula').value = '';
+    $('#otros').value = '';
   }
   recargar();
 }

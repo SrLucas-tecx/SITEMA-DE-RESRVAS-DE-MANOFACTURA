@@ -15,27 +15,39 @@
   <main>
     <div id="aviso"></div>
 
-    <!-- Fecha y botón para apartar -->
+    <!-- Barra superior: fecha, vista y botón para apartar -->
     <div class="card nav">
       <button id="prev">◀</button>
       <input type="date" id="fecha">
       <button id="next">▶</button>
       <button id="hoy">Hoy</button>
+      <div class="vistas">
+        <button data-v="dia">Día</button>
+        <button data-v="semana">Semana</button>
+        <button data-v="mes">Mes</button>
+      </div>
       <button class="p" id="abrirApartar">+ Apartar</button>
     </div>
 
-    <!-- Leyenda de colores (se llena desde app.js) -->
-    <div class="card ley" id="leyenda"></div>
+    <div class="layout">
+      <!-- Calendario (día, semana o mes) -->
+      <section class="card w">
+        <div class="cab"><b id="tituloVista"></b></div>
+        <div id="vista"></div>
+        <p class="sub" style="margin:8px 0 0">En la vista Día toca una celda libre para apartar o una de color para cancelar. En Semana y Mes toca un día para verlo por horas. Gris = no disponible.</p>
+      </section>
 
-    <!-- Calendario del día -->
-    <div class="card w">
-      <table id="grid"></table>
-      <p class="sub" style="margin:8px 0 0">Toca una celda libre para apartar o una celda de color para cancelar. Gris = no disponible.</p>
-    </div>
-
-    <div class="card">
-      <b>Reservas del día</b>
-      <ul id="lista"></ul>
+      <!-- Barra lateral -->
+      <aside>
+        <div class="card">
+          <b>Equipos</b>
+          <div class="ley" id="leyenda" style="margin-top:8px"></div>
+        </div>
+        <div class="card">
+          <b id="tituloLista">Reservas del día</b>
+          <ul id="lista"></ul>
+        </div>
+      </aside>
     </div>
   </main>
 
@@ -43,14 +55,17 @@
   <dialog id="modalApartar">
     <div id="formApartar">
       <h2>Apartar</h2>
-      <p class="sub" id="resumen"></p>
-      <div class="g">
+      <div class="g" style="margin-top:10px">
         <label>Nombre completo <input id="nombre" autocomplete="name"></label>
         <label>Matrícula <input id="matricula"></label>
+        <label>Fecha <input type="date" id="fechaR"></label>
         <label>Hora de inicio <select id="inicio"></select></label>
         <label>Duración <select id="dur"></select></label>
       </div>
       <div class="eq" id="eq"></div>
+      <label>Otros (opcional: proyector, herramientas, qué vas a hacer…)
+        <input id="otros" maxlength="200">
+      </label>
       <div id="out"></div>
       <div class="acciones">
         <button id="cerrarApartar">Cerrar</button>

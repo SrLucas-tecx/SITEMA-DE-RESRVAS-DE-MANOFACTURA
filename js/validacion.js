@@ -6,6 +6,7 @@ import { aMinutos, ahora, chocan } from './utils.js';
 export function validar(r, reservas, bloqueos) {
   if (!r.nombre || r.nombre.trim().length < 3) return 'Escribe tu nombre completo.';
   if (!r.matricula || r.matricula.trim().length < 4) return 'Escribe tu matrícula.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(r.fecha)) return 'Elige una fecha.';
   if (!r.equipos.length) return 'Elige al menos una parte de la celda.';
 
   const inicio = aMinutos(r.inicio);

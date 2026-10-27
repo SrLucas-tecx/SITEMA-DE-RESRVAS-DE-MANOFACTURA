@@ -35,7 +35,7 @@ body {
 .top h1 { margin: 0; font-size: 20px; }
 .top p  { margin: 2px 0 0; color: #7fe3b4; font-size: 13px; }
 
-main { max-width: 1000px; margin: auto; padding: 16px; }
+main { max-width: 1200px; margin: auto; padding: 16px; }
 
 .card {
   background: var(--c);
@@ -111,7 +111,27 @@ dialog h2 { margin: 0 0 4px; font-size: 18px; }
 li { margin: 4px 0; }
 .can { text-decoration: line-through; color: var(--m); }
 
+/* ===== Barra lateral y vistas ===== */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+aside .ley { flex-direction: column; }
+aside li small { color: var(--m); }
+.vistas { display: flex; gap: 4px; }
+button.on { background: var(--dark); color: #fff; border-color: var(--dark); }
+.cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+th[data-ir], td[data-ir] { cursor: pointer; }
+th.hoyc { background: var(--green); color: var(--dark); }
+td.s { padding: 1px 2px; height: 22px; }
+.segs { display: flex; gap: 1px; }
+.segs i { flex: 1; height: 16px; background: #dfe9f3; border-radius: 2px; }
+td.pas { opacity: .5; }
+td.m { height: 92px; vertical-align: top; text-align: left; }
+td.m.fuera { opacity: .4; }
+td.m.hoyc { outline: 2px solid var(--green); outline-offset: -2px; }
+td.m small { display: block; color: var(--m); }
+.chips { display: flex; gap: 3px; flex-wrap: wrap; margin: 4px 0; }
+
 /* ===== Responsivo ===== */
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 @media (max-width: 700px) {
   main { padding: 10px; }
   .top { padding: 12px; }
@@ -129,7 +149,10 @@ li { margin: 4px 0; }
   td.h { width: 46px; }
   td.o { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .ley { flex-direction: column; gap: 6px; }
+  .ley { gap: 6px; }
+  td.m { height: 64px; }
+  .vistas { width: 100%; }
+  .vistas button { flex: 1; }
 
   /* Popups más cómodos en celular */
   dialog { padding: 16px; width: 94vw; }
