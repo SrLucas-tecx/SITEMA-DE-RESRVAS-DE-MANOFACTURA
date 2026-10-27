@@ -23,18 +23,22 @@ const Local = {
 
   async create(r) {
     const todas = cargarLocal();
-    const error = validar(r, todas, CFG.BLOQUEOS);
-    if (error) return { error };
+    if (!r.fechas || !r.fechas.length || r.fechas.length > CFG.MAX_DIAS) {
+      return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' días.' };
+    }
+    // Se validan todos los días antes de guardar ninguno
+    for (const f of r.fechas) {
+      const error = validar({ ...r, fecha: f }, todas, CFG.BLOQUEOS);
+      if (error) return { error: f + ': ' + error };
+    }
 
-    const nueva = {
-      ...r,
-      id: Date.now().toString(36),
-      pin: String(1000 + Math.floor(Math.random() * 9000)),
-      estado: 'Activa'
-    };
-    todas.push(nueva);
+    const pin = String(1000 + Math.floor(Math.random() * 9000));   // un código para todos los días
+    r.fechas.forEach((f, i) => {
+      const { fechas, ...resto } = r;
+      todas.push({ ...resto, fecha: f, id: Date.now().toString(36) + i, pin, estado: 'Activa' });
+    });
     guardarLocal(todas);
-    return { ok: 1, pin: nueva.pin };
+    return { ok: 1, pin, n: r.fechas.length };
   },
 
   async cancel(o) {

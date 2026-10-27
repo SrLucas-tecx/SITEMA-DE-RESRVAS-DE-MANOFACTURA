@@ -8,8 +8,11 @@
 </head>
 <body>
   <header class="top">
-    <h1>Reservas · Celda de Manufactura</h1>
-    <p id="modo"></p>
+    <div>
+      <h1>Reservas · Celda de Manufactura</h1>
+      <p id="modo"></p>
+    </div>
+    <span class="enlinea cargando" id="enlinea">Conectando…</span>
   </header>
 
   <main>
@@ -58,9 +61,14 @@
       <div class="g" style="margin-top:10px">
         <label>Nombre completo <input id="nombre" autocomplete="name"></label>
         <label>Matrícula <input id="matricula"></label>
-        <label>Fecha <input type="date" id="fechaR"></label>
         <label>Hora de inicio <select id="inicio"></select></label>
         <label>Duración <select id="dur"></select></label>
+      </div>
+      <div class="dias">
+        <label>Días a apartar (elige una fecha para agregarla; puedes elegir varios)
+          <input type="date" id="fechaR">
+        </label>
+        <div id="fechasSel"></div>
       </div>
       <div class="eq" id="eq"></div>
       <label>Otros (opcional: proyector, herramientas, qué vas a hacer…)
@@ -78,6 +86,7 @@
       <h2>¡Reserva lista!</h2>
       <p>Tu código de cancelación es:</p>
       <div class="codigo" id="codigo"></div>
+      <p class="sub" id="exitoDias"></p>
       <p class="sub">Guárdalo: lo necesitas junto con tu matrícula para cancelar.</p>
       <div class="acciones"><button class="p" id="cerrarExito">Entendido</button></div>
     </div>

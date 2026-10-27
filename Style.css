@@ -10,6 +10,8 @@
   --m:     #536b80;   /* texto secundario */
   --b:     #bdd0e1;   /* bordes */
   --gris:  #cddae6;   /* no disponible */
+  --linea: #7f9bb3;   /* líneas del calendario */
+  --linea2:#4d6f8c;   /* líneas de cada hora y marco */
   --err:   #fde2e2;
   --errt:  #9b1c1c;
   --ok:    #d3f5e3;
@@ -32,6 +34,7 @@ body {
   padding: 16px;
   border-bottom: 4px solid var(--green);
 }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .top h1 { margin: 0; font-size: 20px; }
 .top p  { margin: 2px 0 0; color: #7fe3b4; font-size: 13px; }
 
@@ -78,7 +81,7 @@ label input, label select { width: 100%; margin-top: 3px; }
 /* ===== Calendario ===== */
 .w { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; min-width: 560px; }
-th, td { border: 1px solid var(--b); padding: 4px 6px; text-align: center; font-size: 13px; }
+th, td { border: 2px solid var(--linea); padding: 4px 6px; text-align: center; font-size: 13px; }
 th { background: var(--gris); }
 td.h { width: 60px; color: var(--m); background: var(--gris); }  /* columna de horas */
 td.l { cursor: pointer; }                                        /* libre */
@@ -129,6 +132,30 @@ td.m.fuera { opacity: .4; }
 td.m.hoyc { outline: 2px solid var(--green); outline-offset: -2px; }
 td.m small { display: block; color: var(--m); }
 .chips { display: flex; gap: 3px; flex-wrap: wrap; margin: 4px 0; }
+
+/* ===== Calendario: marco y línea más gruesa en cada hora ===== */
+table { border: 3px solid var(--linea2); }
+tr.hora > td, tr.hora > th { border-top: 3px solid var(--linea2); }
+
+/* ===== Indicador de conexión ===== */
+.enlinea {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(255, 255, 255, .12); color: #fff; font-size: 13px; font-weight: 600;
+}
+.enlinea::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--punto, #999); }
+.enlinea.ok { --punto: #00e676; }
+.enlinea.ok::before { animation: pulso 2s infinite; }
+.enlinea.mal { --punto: #ff5c5c; background: rgba(255, 92, 92, .25); }
+.enlinea.cargando, .enlinea.local { --punto: #f2b705; }
+@keyframes pulso { 50% { opacity: .35; } }
+
+/* ===== Días elegidos en el formulario ===== */
+.dias { margin-top: 12px; }
+#fechasSel { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.fchip { display: inline-flex; align-items: center; gap: 4px; background: var(--dark); color: #fff;
+         border-radius: 999px; padding: 3px 6px 3px 12px; font-size: 13px; }
+.fchip button { background: transparent; border: 0; color: #7fe3b4; padding: 0 4px; font-size: 14px; }
 
 /* ===== Responsivo ===== */
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }

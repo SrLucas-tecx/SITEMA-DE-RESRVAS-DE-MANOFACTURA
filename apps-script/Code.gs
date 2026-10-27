@@ -6,6 +6,8 @@
 const CFG = {
   HORA_INI: '08:00', HORA_FIN: '20:00',   // igual que en el HTML
   MAX_BLOQUES: 3,                          // 3 bloques de 30 min = 1 h 30 min
+  MAX_DIAS: 5,                             // días que se pueden apartar en una sola reserva
+  DIAS_ANTICIPACION: 5,                    // hay que apartar con al menos 5 días de anticipación
   ADMIN: 'maestro123',                     // código del maestro: CÁMBIALO
   DIAS_HISTORIAL: 30,                      // reservas más viejas pasan a "Historial"
   EQUIPOS: ['Celda', 'Brazo', 'Banda + Cámara', 'Cortadora']
@@ -70,25 +72,40 @@ function doPost(e) {
 function crear(r) {
   const nombre = String(r.nombre || '').trim(), mat = String(r.matricula || '').trim();
   const eq = Array.isArray(r.equipos) ? r.equipos : [];
+  const fechas = [...new Set(Array.isArray(r.fechas) ? r.fechas : [r.fecha])];   // uno o varios días
   if (nombre.length < 3) return { error: 'Escribe tu nombre completo.' };
   if (mat.length < 4) return { error: 'Escribe tu matrícula.' };
-  if (!eq.length || eq.some(x => CFG.EQUIPOS.indexOf(x) < 0)) return { error: 'Elige una parte válida de la celda.' };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(r.fecha) || !/^\d{2}:\d{2}$/.test(r.inicio) || !/^\d{2}:\d{2}$/.test(r.fin)) return { error: 'Fecha u hora inválida.' };
+  const noValidos = eq.filter(x => CFG.EQUIPOS.indexOf(x) < 0);
+  if (!eq.length) return { error: 'Elige al menos una parte de la celda.' };
+  if (noValidos.length) return { error: 'El servidor no reconoce: ' + noValidos.join(', ') + '. Revisa la lista EQUIPOS en Code.gs y crea una Versión nueva.' };
+  if (!fechas.length || fechas.length > CFG.MAX_DIAS) return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' días.' };
+  if (!/^\d{2}:\d{2}$/.test(r.inicio) || !/^\d{2}:\d{2}$/.test(r.fin)) return { error: 'Hora inválida.' };
   const i = mins(r.inicio), f = mins(r.fin);
-  if (i % 30 || f % 30 || f - i < 30 || f - i > 30 * CFG.MAX_BLOQUES) return { error: 'Duración máxima: ' + CFG.MAX_BLOQUES * 30 + ' minutos.' };
+  if (i % 30 !== 0 || f % 30 !== 0 || (f - i) < 30 || (f - i) > (30 * CFG.MAX_BLOQUES)) return { error: 'Duración máxima: ' + (CFG.MAX_BLOQUES * 30) + ' minutos.' };
   if (i < mins(CFG.HORA_INI) || f > mins(CFG.HORA_FIN)) return { error: 'Fuera del horario de la celda.' };
-  if (r.fecha + ' ' + r.inicio < ahora()) return { error: 'Ese horario ya pasó.' };
-  for (const b of leer('Bloqueos'))
-    if (b.fecha === r.fecha && i < mins(b.fin) && f > mins(b.inicio)) return { error: 'Horario no disponible: ' + (b.motivo || 'bloqueado') };
-  for (const x of leer('Reservas'))
-    if (x.estado === 'Activa' && x.fecha === r.fecha && i < mins(x.fin) && f > mins(x.inicio) &&
-        choca(x.equipos.split(',').map(s => s.trim()), eq))
-      return { error: 'Ya está ocupado (' + x.equipos + ' de ' + x.inicio + ' a ' + x.fin + ').' };
-  const pin = String(1000 + Math.floor(Math.random() * 9000));
-  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Reservas').appendRow(
-    [Utilities.getUuid().slice(0, 8), ahora(), r.fecha, r.inicio, r.fin, eq.join(', '), nombre, mat, pin, 'Activa', String(r.otros || '').trim().slice(0, 200)]
-  );
-  return { ok: 1, pin: pin };
+
+  // Se validan todos los días antes de guardar ninguno
+  const bloqueos = leer('Bloqueos'), reservas = leer('Reservas');
+  const lim = new Date(); lim.setDate(lim.getDate() + CFG.DIAS_ANTICIPACION);
+  const minimo = Utilities.formatDate(lim, TZ, 'yyyy-MM-dd');   // primer día que ya se puede apartar
+  for (const dia of fechas) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return { error: 'Fecha inválida.' };
+    if (dia < minimo) return { error: dia + ': hay que apartar con ' + CFG.DIAS_ANTICIPACION + ' días de anticipación (primer día disponible: ' + minimo + ').' };
+    if (dia + ' ' + r.inicio < ahora()) return { error: dia + ': ese horario ya pasó.' };
+    for (const b of bloqueos)
+      if (b.fecha === dia && i < mins(b.fin) && f > mins(b.inicio)) return { error: dia + ': horario no disponible (' + (b.motivo || 'bloqueado') + ').' };
+    for (const x of reservas)
+      if (x.estado === 'Activa' && x.fecha === dia && i < mins(x.fin) && f > mins(x.inicio) &&
+          choca(x.equipos.split(',').map(s => s.trim()), eq))
+        return { error: dia + ': ya está ocupado (' + x.equipos + ' de ' + x.inicio + ' a ' + x.fin + ').' };
+  }
+
+  const pin = String(1000 + Math.floor(Math.random() * 9000));   // un código para todos los días
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Reservas');
+  fechas.forEach(dia => hoja.appendRow(
+    [Utilities.getUuid().slice(0, 8), ahora(), dia, r.inicio, r.fin, eq.join(', '), nombre, mat, pin, 'Activa', String(r.otros || '').trim().slice(0, 200)]
+  ));
+  return { ok: 1, pin: pin, n: fechas.length };
 }
 
 function cancelar(o) {

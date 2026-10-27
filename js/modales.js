@@ -1,18 +1,48 @@
-/* Popups: apartar una reserva y cancelarla */
+/* Popups: apartar una reserva (uno o varios días) y cancelarla */
 import { CFG } from './config.js';
-import { $, aMinutos, aHora, escapar, hoy } from './utils.js';
-import { validar } from './validacion.js';
+import { $, aMinutos, aHora, escapar, nombreDia, diaDelMes } from './utils.js';
+import { validar, fechaMinima } from './validacion.js';
 import { api } from './api.js';
 import { estado } from './estado.js';
 import { bloques } from './horario.js';
 
 const casillas = () => [...document.querySelectorAll('#eq input')];
+let fechasSel = [];   // días elegidos para esta reserva
+
+// "2026-10-28" -> "mié 28/10"
+const etiqueta = f => `${nombreDia(f)} ${diaDelMes(f)}/${f.slice(5, 7)}`;
+
+/* ---------- Días elegidos (chips con ✕) ---------- */
+function dibujarFechas() {
+  $('#fechasSel').innerHTML = fechasSel.map(f =>
+    `<span class="fchip">${etiqueta(f)} <button type="button" data-q="${f}" title="Quitar">✕</button></span>`).join('');
+}
+
+function agregarFecha() {
+  const f = $('#fechaR').value;
+  $('#fechaR').value = '';
+  if (!f || fechasSel.includes(f)) return;
+  if (f < fechaMinima()) {
+    $('#out').innerHTML = `<div class="msg e">Hay que apartar con ${CFG.DIAS_ANTICIPACION} días de anticipación. Primer día disponible: ${fechaMinima()}.</div>`;
+    return;
+  }
+  if (fechasSel.length >= CFG.MAX_DIAS) {
+    $('#out').innerHTML = `<div class="msg e">Máximo ${CFG.MAX_DIAS} días por reserva.</div>`;
+    return;
+  }
+  $('#out').innerHTML = '';
+  fechasSel.push(f);
+  fechasSel.sort();
+  dibujarFechas();
+}
 
 /* ---------- Abrir popups ---------- */
 // Con hora y equipo (clic en una celda libre) deja el formulario ya llenado
 export function abrirApartar(fecha, inicio, equipo) {
-  $('#fechaR').min = hoy();
-  $('#fechaR').value = fecha || estado.fecha;
+  const minimo = fechaMinima();
+  $('#fechaR').min = minimo;
+  fechasSel = [fecha && fecha >= minimo ? fecha : minimo];
+  dibujarFechas();
   if (inicio) {
     $('#inicio').value = inicio;
     casillas().forEach(c => c.checked = (c.value === equipo));
@@ -26,7 +56,7 @@ export function abrirApartar(fecha, inicio, equipo) {
 export function abrirCancelar(id) {
   estado.seleccionada = id;
   const x = estado.datos.res.find(y => y.id === id);
-  $('#cinfo').textContent = `${x.nombre} · ${x.equipos.join(', ')} · ${x.inicio}–${x.fin}`;
+  $('#cinfo').textContent = `${x.fecha} · ${x.nombre} · ${x.equipos.join(', ')} · ${x.inicio}–${x.fin}`;
   $('#cout').innerHTML = '';
   $('#modalCancelar').showModal();
 }
@@ -34,22 +64,31 @@ export function abrirCancelar(id) {
 /* ---------- Acciones ---------- */
 async function apartar(recargar) {
   const inicio = $('#inicio').value;
+  agregarFecha();   // si dejaron una fecha escrita sin agregar, se cuenta
   const r = {
     nombre: $('#nombre').value,
     matricula: $('#matricula').value,
-    fecha: $('#fechaR').value,
     otros: $('#otros').value.trim(),
     inicio: inicio,
     fin: aHora(aMinutos(inicio) + 30 * $('#dur').value),
-    equipos: casillas().filter(c => c.checked).map(c => c.value)
+    equipos: casillas().filter(c => c.checked).map(c => c.value),
+    fechas: [...fechasSel]
   };
 
-  // Primero se valida aquí; el servidor vuelve a validar al guardar
+  // Primero se valida aquí cada día; el servidor vuelve a validar al guardar
   $('#out').innerHTML = '';
-  const error = validar(r, estado.datos.res.filter(x => x.estado === 'Activa'), estado.datos.blq);
-  if (error) {
-    $('#out').innerHTML = `<div class="msg e">${error}</div>`;
+  const activas = estado.datos.res.filter(x => x.estado === 'Activa');
+  if (!r.fechas.length) {
+    $('#out').innerHTML = '<div class="msg e">Elige al menos un día.</div>';
     return;
+  }
+  for (const f of r.fechas) {
+    const error = validar({ ...r, fecha: f }, activas, estado.datos.blq);
+    if (error) {
+      const dia = r.fechas.length > 1 ? etiqueta(f) + ': ' : '';
+      $('#out').innerHTML = `<div class="msg e">${escapar(dia + error)}</div>`;
+      return;
+    }
   }
 
   $('#apartar').disabled = true;
@@ -62,6 +101,9 @@ async function apartar(recargar) {
     $('#out').innerHTML = `<div class="msg e">${escapar(respuesta.error)}</div>`;
   } else {
     $('#codigo').textContent = respuesta.pin;   // se muestra en el popup de éxito
+    $('#exitoDias').textContent = r.fechas.length > 1
+      ? `Se apartaron ${r.fechas.length} días (${r.fechas.map(etiqueta).join(', ')}). El mismo código sirve para cancelar cada día.`
+      : '';
     $('#formApartar').hidden = true;
     $('#exito').hidden = false;
     $('#nombre').value = '';
@@ -97,6 +139,15 @@ export function iniciarModales(recargar) {
     `<option value="${i + 1}">${(i + 1) * 30} min</option>`).join('');
   $('#eq').innerHTML = CFG.EQUIPOS.map(e =>
     `<label><input type="checkbox" value="${e}"><i class="chip" style="background:${CFG.COLORES[e]}"></i>${e}</label>`).join('');
+
+  // Días: al elegir una fecha se agrega; la ✕ la quita
+  $('#fechaR').onchange = agregarFecha;
+  $('#fechasSel').onclick = ev => {
+    const q = ev.target.dataset.q;
+    if (!q) return;
+    fechasSel = fechasSel.filter(f => f !== q);
+    dibujarFechas();
+  };
 
   // Botones
   $('#abrirApartar').onclick = () => abrirApartar();

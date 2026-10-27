@@ -10,14 +10,25 @@ $('#modo').textContent = CFG.API_URL
   ? 'Conectado a Google Sheets · datos compartidos'
   : 'Modo local de pruebas · los datos solo se guardan en este navegador';
 
+// Indicador de conexión (arriba a la derecha)
+function mostrarConexion(ok) {
+  const el = $('#enlinea');
+  if (!CFG.API_URL) { el.className = 'enlinea local'; el.textContent = 'Modo local'; return; }
+  const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  el.className = 'enlinea ' + (ok ? 'ok' : 'mal');
+  el.textContent = ok ? 'En línea · actualizado ' + hora : 'Sin conexión · reintentando…';
+}
+
 // Lee las reservas (de Sheets o local) y redibuja
 async function cargar() {
   try {
     estado.datos = await api.list();
     if (!estado.datos.res) throw new Error('respuesta inválida');
     $('#aviso').innerHTML = '';
+    mostrarConexion(true);
   } catch (e) {
     estado.datos = { res: [], blq: [] };
+    mostrarConexion(false);
     $('#aviso').innerHTML = '<div class="msg e">No se pudo leer los datos. Intenta recargar la página.</div>';
   }
   dibujar();
@@ -38,6 +49,10 @@ $('#hoy').onclick = () => irA(hoy());
 document.querySelectorAll('[data-v]').forEach(b => {
   b.onclick = () => { estado.vista = b.dataset.v; dibujar(); };
 });
+
+// Si el navegador pierde o recupera internet
+window.addEventListener('offline', () => mostrarConexion(false));
+window.addEventListener('online', cargar);
 
 // Arranque
 dibujarLeyenda();

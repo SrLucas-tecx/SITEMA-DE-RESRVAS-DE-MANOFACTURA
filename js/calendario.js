@@ -10,9 +10,10 @@ const VISTAS = { dia: htmlDia, semana: htmlSemana, mes: htmlMes };
 
 // Leyenda: cuadrito de color + nombre de cada equipo
 export function dibujarLeyenda() {
+  const notas = CFG.NOTAS || {};
   $('#leyenda').innerHTML = CFG.EQUIPOS.map(e =>
     `<span class="item"><i class="chip" style="background:${CFG.COLORES[e]}"></i><b>${e}</b>` +
-    (CFG.NOTAS[e] ? ` <small>· ${CFG.NOTAS[e]}</small>` : '') + '</span>').join('');
+    (notas[e] ? ` <small>· ${notas[e]}</small>` : '') + '</span>').join('');
 }
 
 function titulo() {

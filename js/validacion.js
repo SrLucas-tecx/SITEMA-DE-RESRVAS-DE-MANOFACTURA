@@ -1,6 +1,9 @@
 /* Validación de reservas (horario, duración, bloqueos y choques) */
 import { CFG } from './config.js';
-import { aMinutos, ahora, chocan } from './utils.js';
+import { aMinutos, ahora, chocan, hoy, sumarDias } from './utils.js';
+
+// Primer día que ya se puede apartar (hoy + días de anticipación)
+export const fechaMinima = () => sumarDias(hoy(), CFG.DIAS_ANTICIPACION);
 
 // Devuelve un texto con el error, o null si la reserva es válida
 export function validar(r, reservas, bloqueos) {
@@ -17,6 +20,9 @@ export function validar(r, reservas, bloqueos) {
   }
   if (inicio < aMinutos(CFG.HORA_INI) || fin > aMinutos(CFG.HORA_FIN)) {
     return 'Fuera del horario de la celda.';
+  }
+  if (r.fecha < fechaMinima()) {
+    return 'Hay que apartar con ' + CFG.DIAS_ANTICIPACION + ' días de anticipación. Primer día disponible: ' + fechaMinima() + '.';
   }
   if (r.fecha + ' ' + r.inicio < ahora()) return 'Ese horario ya pasó.';
 
