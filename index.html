@@ -7,60 +7,82 @@
   <link rel="stylesheet" href="Style.css">
 </head>
 <body>
-  <main>
+  <header class="top">
     <h1>Reservas · Celda de Manufactura</h1>
-    <p class="sub" id="modo"></p>
+    <p id="modo"></p>
+  </header>
 
-    <!-- Selector de fecha -->
+  <main>
+    <div id="aviso"></div>
+
+    <!-- Fecha y botón para apartar -->
     <div class="card nav">
       <button id="prev">◀</button>
       <input type="date" id="fecha">
       <button id="next">▶</button>
       <button id="hoy">Hoy</button>
-      <span class="sub" style="margin:0">Rojo = ocupado · Gris = no disponible · Toca una celda libre para apartar</span>
+      <button class="p" id="abrirApartar">+ Apartar</button>
     </div>
 
-    <!-- Calendario del día (se dibuja desde app.js) -->
+    <!-- Leyenda de colores (se llena desde app.js) -->
+    <div class="card ley" id="leyenda"></div>
+
+    <!-- Calendario del día -->
     <div class="card w">
       <table id="grid"></table>
+      <p class="sub" style="margin:8px 0 0">Toca una celda libre para apartar o una celda de color para cancelar. Gris = no disponible.</p>
     </div>
 
-    <!-- Formulario para apartar -->
-    <div class="card">
-      <b>Apartar</b>
-      <div class="g" style="margin-top:8px">
-        <label>Nombre completo <input id="nombre" autocomplete="name"></label>
-        <label>Matrícula <input id="matricula"></label>
-        <label>Hora de inicio <select id="inicio"></select></label>
-        <label>Duración <select id="dur"></select></label>
-      </div>
-      <div class="eq" id="eq"></div>
-      <button class="p" id="apartar">Apartar</button>
-      <div id="out"></div>
-    </div>
-
-    <!-- Cancelar (aparece al tocar una celda roja) -->
-    <div class="card" id="cancelCard" hidden>
-      <b>Cancelar reserva</b>
-      <p id="cinfo" class="sub"></p>
-      <div class="g">
-        <label>Matrícula <input id="cmat"></label>
-        <label>Código de cancelación <input id="ccod"></label>
-      </div>
-      <p style="margin:10px 0 0">
-        <button id="cancelar">Cancelar reserva</button>
-        <button id="cerrar">Cerrar</button>
-      </p>
-      <div id="cout"></div>
-    </div>
-
-    <!-- Lista del día -->
     <div class="card">
       <b>Reservas del día</b>
       <ul id="lista"></ul>
     </div>
   </main>
 
-  <script src="app.js"></script>
+  <!-- POPUP: apartar -->
+  <dialog id="modalApartar">
+    <div id="formApartar">
+      <h2>Apartar</h2>
+      <p class="sub" id="resumen"></p>
+      <div class="g">
+        <label>Nombre completo <input id="nombre" autocomplete="name"></label>
+        <label>Matrícula <input id="matricula"></label>
+        <label>Hora de inicio <select id="inicio"></select></label>
+        <label>Duración <select id="dur"></select></label>
+      </div>
+      <div class="eq" id="eq"></div>
+      <div id="out"></div>
+      <div class="acciones">
+        <button id="cerrarApartar">Cerrar</button>
+        <button class="p" id="apartar">Apartar</button>
+      </div>
+    </div>
+
+    <!-- Se muestra al terminar la reserva -->
+    <div id="exito" hidden>
+      <h2>¡Reserva lista!</h2>
+      <p>Tu código de cancelación es:</p>
+      <div class="codigo" id="codigo"></div>
+      <p class="sub">Guárdalo: lo necesitas junto con tu matrícula para cancelar.</p>
+      <div class="acciones"><button class="p" id="cerrarExito">Entendido</button></div>
+    </div>
+  </dialog>
+
+  <!-- POPUP: cancelar -->
+  <dialog id="modalCancelar">
+    <h2>Cancelar reserva</h2>
+    <p id="cinfo" class="sub"></p>
+    <div class="g">
+      <label>Matrícula <input id="cmat"></label>
+      <label>Código de cancelación <input id="ccod"></label>
+    </div>
+    <div id="cout"></div>
+    <div class="acciones">
+      <button id="cerrar">Cerrar</button>
+      <button class="p" id="cancelar">Cancelar reserva</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

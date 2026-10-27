@@ -14,13 +14,15 @@ const CFG = {
   // Solo para pruebas en modo local. En Google Sheets el código vive en Code.gs.
   ADMIN_LOCAL: '',
 
-  EQUIPOS: ['CNC', 'Banda', 'Robot', 'Cortadora', 'Herramientas'],
+  // Cada equipo tiene su color. "Banda + Cámara" va junta porque solo se usan a la vez.
+  EQUIPOS: ['Celda', 'Brazo', 'Banda + Cámara', 'Cortadora'],
+  COLORES: { 'Celda': '#00D26A', 'Brazo': '#2BC5C5', 'Banda + Cámara': '#F2B705', 'Cortadora': '#B79CFF' },
+  NOTAS: { 'Cortadora': 'La usan sobre todo los de primer año' },
 
   // Solo modo local. Ej: { fecha: '2026-10-28', inicio: '08:00', fin: '12:00', motivo: 'Clase' }
   BLOQUEOS: []
 };
 
-const CC = 'Celda completa';   // choca con todos los equipos
 
 
 /* ---------- 2. UTILIDADES ---------- */
@@ -63,7 +65,7 @@ function sumarDias(fecha, n) {
 
 // ¿Dos listas de equipos usan algo en común?
 function chocan(a, b) {
-  return a.includes(CC) || b.includes(CC) || a.some(equipo => b.includes(equipo));
+  return a.some(equipo => b.includes(equipo));
 }
 
 // Evita que un nombre escrito por alguien rompa la página
@@ -200,8 +202,13 @@ $('#inicio').innerHTML = bloques.map(t => `<option>${aHora(t)}</option>`).join('
 $('#dur').innerHTML = Array.from({ length: CFG.MAX_BLOQUES }, (_, i) =>
   `<option value="${i + 1}">${(i + 1) * 30} min</option>`).join('');
 
-$('#eq').innerHTML = [CC, ...CFG.EQUIPOS].map(e =>
-  `<label><input type="checkbox" value="${e}">${e}</label>`).join('');
+$('#eq').innerHTML = CFG.EQUIPOS.map(e =>
+  `<label><input type="checkbox" value="${e}"><i class="chip" style="background:${CFG.COLORES[e]}"></i>${e}</label>`).join('');
+
+// Leyenda: cuadrito de color + nombre de cada equipo
+$('#leyenda').innerHTML = CFG.EQUIPOS.map(e =>
+  `<span class="item"><i class="chip" style="background:${CFG.COLORES[e]}"></i><b>${e}</b>` +
+  (CFG.NOTAS[e] ? ` <small>· ${CFG.NOTAS[e]}</small>` : '') + '</span>').join('');
 
 const casillas = () => [...document.querySelectorAll('#eq input')];
 const reservasDelDia = () => datos.res.filter(x => x.fecha === fecha);
@@ -216,7 +223,7 @@ function dibujar() {
   const horaActual = ahora();
 
   // Encabezado: una columna por equipo
-  let html = '<tr><th></th>' + CFG.EQUIPOS.map(e => `<th>${e}</th>`).join('') + '</tr>';
+  let html = '<tr><th></th>' + CFG.EQUIPOS.map(e => `<th style="border-top:4px solid ${CFG.COLORES[e]}">${e}</th>`).join('') + '</tr>';
 
   // Una fila por cada bloque de 30 min
   for (const t of bloques) {
@@ -231,7 +238,7 @@ function dibujar() {
       if (ocupada) {
         // El nombre solo se muestra en el primer bloque de la reserva
         const nombre = aMinutos(ocupada.inicio) === t ? escapar(ocupada.nombre.split(' ')[0]) : '·';
-        html += `<td class="o" data-id="${ocupada.id}">${nombre}</td>`;
+        html += `<td class="o" style="background:${CFG.COLORES[equipo]}" data-id="${ocupada.id}">${nombre}</td>`;
       } else if (bloqueado) {
         html += '<td class="x">—</td>';
       } else if (pasado) {
@@ -264,10 +271,11 @@ function dibujar() {
 async function cargar() {
   try {
     datos = await api.list();
+    $('#aviso').innerHTML = '';
     if (!datos.res) throw new Error('respuesta inválida');
   } catch (e) {
     datos = { res: [], blq: [] };
-    $('#out').innerHTML = '<div class="msg e">No se pudo leer los datos.</div>';
+    $('#aviso').innerHTML = '<div class="msg e">No se pudo leer los datos. Intenta recargar la página.</div>';
   }
   dibujar();
 }
@@ -282,12 +290,12 @@ $('#grid').onclick = ev => {
   if (td.dataset.t) {
     $('#inicio').value = td.dataset.t;
     casillas().forEach(c => c.checked = (c.value === td.dataset.e));
-    $('#nombre').focus();
+    abrirApartar();
   } else if (td.dataset.id) {
     seleccionada = td.dataset.id;
     const x = datos.res.find(y => y.id === seleccionada);
     $('#cinfo').textContent = `${x.nombre} · ${x.equipos.join(', ')} · ${x.inicio}–${x.fin}`;
-    $('#cancelCard').hidden = false;
+    $('#modalCancelar').showModal();
     $('#cout').innerHTML = '';
     $('#cmat').focus();
   }
@@ -304,7 +312,6 @@ $('#apartar').onclick = async () => {
     fin: aHora(aMinutos(inicio) + 30 * $('#dur').value),
     equipos: casillas().filter(c => c.checked).map(c => c.value)
   };
-  if (r.equipos.includes(CC)) r.equipos = [CC];
 
   // Primero se valida aquí; el servidor vuelve a validar al guardar
   $('#out').innerHTML = '';
@@ -323,7 +330,9 @@ $('#apartar').onclick = async () => {
   if (respuesta.error) {
     $('#out').innerHTML = `<div class="msg e">${escapar(respuesta.error)}</div>`;
   } else {
-    $('#out').innerHTML = `<div class="msg">¡Listo! Tu código de cancelación es <b>${respuesta.pin}</b>. Guárdalo: lo necesitas junto con tu matrícula para cancelar.</div>`;
+    $('#codigo').textContent = respuesta.pin;   // se muestra en el popup de éxito
+    $('#formApartar').hidden = true;
+    $('#exito').hidden = false;
     $('#nombre').value = '';
     $('#matricula').value = '';
   }
@@ -348,7 +357,19 @@ $('#cancelar').onclick = async () => {
   }
 };
 
-$('#cerrar').onclick = () => { $('#cancelCard').hidden = true; };
+$('#cerrar').onclick = () => $('#modalCancelar').close();
+
+// Popup de apartar
+function abrirApartar() {
+  $('#formApartar').hidden = false;
+  $('#exito').hidden = true;
+  $('#out').innerHTML = '';
+  $('#resumen').textContent = 'Fecha: ' + fecha;
+  $('#modalApartar').showModal();
+}
+$('#abrirApartar').onclick = abrirApartar;
+$('#cerrarApartar').onclick = () => $('#modalApartar').close();
+$('#cerrarExito').onclick = () => $('#modalApartar').close();
 
 // Navegación por fechas
 $('#fecha').onchange = e => { fecha = e.target.value || hoy(); dibujar(); };
