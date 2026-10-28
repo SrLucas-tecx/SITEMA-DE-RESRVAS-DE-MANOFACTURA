@@ -9,6 +9,7 @@ const CFG = {
   MAX_DIAS: 5,                             // días que se pueden apartar en una sola reserva
   DIAS_ANTICIPACION: 5,                    // hay que apartar con al menos 5 días de anticipación
   ADMIN: 'maestro123',                     // código del maestro: CÁMBIALO
+  VERSION: 'v6',                           // sube este número cuando cambies el script (la web lo compara)
   DIAS_HISTORIAL: 30,                      // reservas más viejas pasan a "Historial"
   EQUIPOS: ['Celda', 'Brazo', 'Banda + Cámara', 'Cortadora']
 };
@@ -38,11 +39,13 @@ const choca = (a, b) => a.some(x => b.includes(x));
 function leer(nombre) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre);
   const v = sh.getDataRange().getValues(), h = v.shift();
-  return v.filter(r => r[0] !== '' || r[2] !== '' || r[1] !== '').map(r => {
-    const o = {};
-    h.forEach((k, i) => o[k] = txt(r[i], k === 'fecha' ? 'yyyy-MM-dd' : 'HH:mm'));
-    return o;
-  });
+  return v.map((r, n) => ({ r, fila: n + 2 }))                    // fila = número de fila real en la hoja
+    .filter(({ r }) => r[0] !== '' || r[2] !== '' || r[1] !== '')
+    .map(({ r, fila }) => {
+      const o = { _fila: fila };
+      h.forEach((k, i) => o[k] = txt(r[i], k === 'fecha' ? 'yyyy-MM-dd' : 'HH:mm'));
+      return o;
+    });
 }
 const salida = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 
@@ -54,8 +57,9 @@ function doGet() {
     id: r.id, fecha: r.fecha, inicio: r.inicio, fin: r.fin,
     equipos: r.equipos.split(',').map(s => s.trim()), nombre: r.nombre, estado: r.estado, otros: r.otros || ''
   })); // nunca se envían matrícula ni código
-  const blq = leer('Bloqueos').filter(b => b.fecha && b.fecha >= desde);
-  return salida({ res, blq });
+  const blq = leer('Bloqueos').filter(b => b.fecha && b.fecha >= desde)
+    .map(b => ({ fecha: b.fecha, inicio: b.inicio, fin: b.fin, motivo: b.motivo }));
+  return salida({ res, blq, version: CFG.VERSION });
 }
 
 function doPost(e) {
@@ -63,7 +67,8 @@ function doPost(e) {
   lock.waitLock(20000);                       // evita que dos personas aparten a la vez
   try {
     const o = JSON.parse(e.postData.contents);
-    return salida(o.action === 'create' ? crear(o) : o.action === 'cancel' ? cancelar(o) : { error: 'Acción inválida.' });
+    const accion = ACCIONES[o.action];
+    return salida(accion ? accion(o) : { error: 'Acción inválida.' });
   } catch (err) {
     return salida({ error: 'Error del servidor: ' + err.message });
   } finally { lock.releaseLock(); }
@@ -114,10 +119,12 @@ function cancelar(o) {
   const idx = filas.findIndex(x => x.id === o.id && x.estado === 'Activa');
   if (idx < 0) return { error: 'Reserva no encontrada.' };
   const x = filas[idx], cod = String(o.codigo || '').trim();
-  const admin = cod === CFG.ADMIN;
-  if (!admin && !(x.matricula.toLowerCase() === String(o.matricula || '').trim().toLowerCase() && x.pin === cod))
+  if (o.admin) {
+    if (!adminOk(o)) return NO_ADMIN;                // el administrador no necesita matrícula ni código
+  } else if (!(x.matricula.toLowerCase() === String(o.matricula || '').trim().toLowerCase() && x.pin === cod)) {
     return { error: 'Matrícula o código incorrectos.' };
-  sh.getRange(idx + 2, COLS.indexOf('estado') + 1).setValue('Cancelada');
+  }
+  sh.getRange(x._fila, COLS.indexOf('estado') + 1).setValue('Cancelada');
   return { ok: 1 };
 }
 
@@ -131,7 +138,58 @@ function limpiar() {
   for (let i = filas.length - 1; i >= 0; i--) {
     if (filas[i].fecha < lim) {
       hist.appendRow(COLS.map(k => filas[i][k]));
-      sh.deleteRow(i + 2);
+      sh.deleteRow(filas[i]._fila);
     }
   }
 }
+
+// ---------- Modo administrador ----------
+const NO_ADMIN = { error: 'Código de administrador incorrecto (si fallaste varias veces, espera 10 minutos).' };
+
+// Revisa el código del administrador. Con 5 intentos fallidos se bloquea 10 minutos.
+function adminOk(o) {
+  const cache = CacheService.getScriptCache();
+  const fallos = Number(cache.get('fallos') || 0);
+  if (fallos >= 5) return false;
+  if (String(o.admin || '').trim() !== CFG.ADMIN) {
+    cache.put('fallos', String(fallos + 1), 600);
+    return false;
+  }
+  cache.remove('fallos');
+  return true;
+}
+
+// Elimina la fila de la reserva (para borrar pruebas o errores)
+function borrar(o) {
+  if (!adminOk(o)) return NO_ADMIN;
+  const x = leer('Reservas').find(y => y.id === o.id);
+  if (!x) return { error: 'Reserva no encontrada.' };
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Reservas').deleteRow(x._fila);
+  return { ok: 1 };
+}
+
+// Agrega bloqueos (clases, mantenimiento…) en una o varias fechas
+function bloquear(o) {
+  if (!adminOk(o)) return NO_ADMIN;
+  const fechas = [...new Set(Array.isArray(o.fechas) ? o.fechas : [])];
+  if (!fechas.length || fechas.length > 60) return { error: 'Elige entre 1 y 60 fechas.' };
+  if (fechas.some(f => !/^\d{4}-\d{2}-\d{2}$/.test(f))) return { error: 'Fecha inválida.' };
+  if (!/^\d{2}:\d{2}$/.test(o.inicio) || !/^\d{2}:\d{2}$/.test(o.fin) || mins(o.fin) <= mins(o.inicio)) return { error: 'Horario inválido.' };
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Bloqueos');
+  const motivo = String(o.motivo || '').trim().slice(0, 60);
+  fechas.forEach(f => hoja.appendRow([f, o.inicio, o.fin, motivo]));
+  return { ok: 1, n: fechas.length };
+}
+
+function desbloquear(o) {
+  if (!adminOk(o)) return NO_ADMIN;
+  const b = leer('Bloqueos').find(x => x.fecha === o.fecha && x.inicio === o.inicio && x.fin === o.fin);
+  if (!b) return { error: 'Bloqueo no encontrado.' };
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Bloqueos').deleteRow(b._fila);
+  return { ok: 1 };
+}
+
+const ACCIONES = {
+  create: crear, cancel: cancelar, borrar: borrar, bloquear: bloquear, desbloquear: desbloquear,
+  admin: o => adminOk(o) ? { ok: 1 } : NO_ADMIN
+};

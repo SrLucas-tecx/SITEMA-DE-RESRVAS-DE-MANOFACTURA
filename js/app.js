@@ -5,7 +5,7 @@
 /* ---------- 1. CONFIGURACIÓN (lo que normalmente se edita) ---------- */
 const CFG = {
   // URL del Apps Script. Si está vacía, la web funciona en modo local de pruebas.
-  API_URL: 'https://script.google.com/macros/s/AKfycbwORWWOWu71ImbRf7OT7hZRYFhpPGNwYrIPdjzBux-RsBYXnNSMKW404CcBQDvypXkZ/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbxwqB6QA7MFKEBL3IaSMCuq6BgLh7HokjmFtquOjLAadMcGonkD2aSr2mNqx6mE4APx/exec',
 
   HORA_INI: '08:00',   // la celda abre
   HORA_FIN: '20:00',   // la celda cierra

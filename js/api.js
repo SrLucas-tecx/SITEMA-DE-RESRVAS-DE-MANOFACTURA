@@ -14,11 +14,18 @@ function guardarLocal(lista) {
   localStorage.setItem(LS, JSON.stringify(lista));
 }
 
+// Bloqueos creados en modo local (se suman a CFG.BLOQUEOS)
+const LSB = 'bloqueos_celda_v1';
+const bloqueosLocal = () => { try { return JSON.parse(localStorage.getItem(LSB)) || []; } catch (e) { return []; } };
+const bloqueosTodos = () => [...CFG.BLOQUEOS, ...bloqueosLocal()];
+const esAdminLocal = o => !!CFG.ADMIN_LOCAL && String(o.admin || '').trim() === CFG.ADMIN_LOCAL;
+const NO_ADMIN = { error: 'Código de administrador incorrecto (en modo local es ADMIN_LOCAL, en config.js).' };
+
 const Local = {
   // La lista pública nunca incluye matrícula ni código
   async list() {
     const res = cargarLocal().map(({ matricula, pin, ...publico }) => publico);
-    return { res, blq: CFG.BLOQUEOS };
+    return { res, blq: bloqueosTodos() };
   },
 
   async create(r) {
@@ -28,7 +35,7 @@ const Local = {
     }
     // Se validan todos los días antes de guardar ninguno
     for (const f of r.fechas) {
-      const error = validar({ ...r, fecha: f }, todas, CFG.BLOQUEOS);
+      const error = validar({ ...r, fecha: f }, todas, bloqueosTodos());
       if (error) return { error: f + ': ' + error };
     }
 
@@ -46,14 +53,39 @@ const Local = {
     const x = todas.find(y => y.id === o.id && y.estado === 'Activa');
     if (!x) return { error: 'Reserva no encontrada.' };
 
-    const esAdmin = !!CFG.ADMIN_LOCAL && o.codigo.trim() === CFG.ADMIN_LOCAL;
-    const datosCorrectos =
-      x.matricula.toLowerCase() === o.matricula.trim().toLowerCase() &&
-      x.pin === o.codigo.trim();
+    const esAdmin = esAdminLocal(o);
+    if (o.admin && !esAdmin) return NO_ADMIN;
+    const datosCorrectos = !o.admin &&
+      x.matricula.toLowerCase() === String(o.matricula || '').trim().toLowerCase() &&
+      x.pin === String(o.codigo || '').trim();
     if (!esAdmin && !datosCorrectos) return { error: 'Matrícula o código incorrectos.' };
 
     x.estado = 'Cancelada';
     guardarLocal(todas);
+    return { ok: 1 };
+  },
+
+  // ----- Administrador -----
+  async admin(codigo) { return esAdminLocal({ admin: codigo }) ? { ok: 1 } : NO_ADMIN; },
+
+  async borrar(o) {
+    if (!esAdminLocal(o)) return NO_ADMIN;
+    guardarLocal(cargarLocal().filter(x => x.id !== o.id));
+    return { ok: 1 };
+  },
+
+  async bloquear(o) {
+    if (!esAdminLocal(o)) return NO_ADMIN;
+    const lista = bloqueosLocal();
+    o.fechas.forEach(fecha => lista.push({ fecha, inicio: o.inicio, fin: o.fin, motivo: o.motivo }));
+    localStorage.setItem(LSB, JSON.stringify(lista));
+    return { ok: 1, n: o.fechas.length };
+  },
+
+  async desbloquear(o) {
+    if (!esAdminLocal(o)) return NO_ADMIN;
+    const resto = bloqueosLocal().filter(b => !(b.fecha === o.fecha && b.inicio === o.inicio && b.fin === o.fin));
+    localStorage.setItem(LSB, JSON.stringify(resto));
     return { ok: 1 };
   }
 };
@@ -69,7 +101,11 @@ const Remote = {
     return respuesta.json();
   },
   create(r) { return this.post({ action: 'create', ...r }); },
-  cancel(o) { return this.post({ action: 'cancel', ...o }); }
+  cancel(o) { return this.post({ action: 'cancel', ...o }); },
+  admin(codigo) { return this.post({ action: 'admin', admin: codigo }); },
+  borrar(o) { return this.post({ action: 'borrar', ...o }); },
+  bloquear(o) { return this.post({ action: 'bloquear', ...o }); },
+  desbloquear(o) { return this.post({ action: 'desbloquear', ...o }); }
 };
 
 // Si hay URL se usa Google Sheets; si no, el modo local

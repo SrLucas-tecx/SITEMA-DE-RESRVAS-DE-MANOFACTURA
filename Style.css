@@ -6,15 +6,17 @@
   --bg:    #dbe8f3;   /* fondo de página (azul claro) */
   --c:     #eef4fa;   /* tarjetas y popups (azul muy claro) */
   --campo: #f7fafd;   /* campos de texto */
+  --celda: #fbfdff;   /* celdas libres del calendario */
   --t:     #0b2433;   /* texto */
   --m:     #536b80;   /* texto secundario */
-  --b:     #bdd0e1;   /* bordes */
-  --gris:  #cddae6;   /* no disponible */
-  --linea: #7f9bb3;   /* líneas del calendario */
-  --linea2:#4d6f8c;   /* líneas de cada hora y marco */
+  --b:     #bdd0e1;   /* bordes de tarjetas */
+  --linea: #a9bccd;   /* líneas del calendario */
+  --linea2:#4d6f8c;   /* línea de cada hora y marco */
+  --gris:  #cddae6;
   --err:   #fde2e2;
   --errt:  #9b1c1c;
   --ok:    #d3f5e3;
+  --sombra: 0 2px 8px rgba(0, 32, 31, .10);
 }
 
 * { box-sizing: border-box; }
@@ -22,122 +24,28 @@
 
 body {
   margin: 0;
-  font: 15px system-ui, sans-serif;
+  font: 15px/1.4 system-ui, sans-serif;
   background: linear-gradient(180deg, #d3e3f1, #e6eff7) fixed;
   color: var(--t);
 }
 
 /* ===== Encabezado ===== */
 .top {
-  background: var(--dark);
-  color: #fff;
-  padding: 16px;
-  border-bottom: 4px solid var(--green);
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--dark); color: #fff;
+  padding: 16px; border-bottom: 4px solid var(--green);
 }
-.top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .top h1 { margin: 0; font-size: 20px; }
 .top p  { margin: 2px 0 0; color: #7fe3b4; font-size: 13px; }
+.top-der { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-main { max-width: 1200px; margin: auto; padding: 16px; }
-
-.card {
-  background: var(--c);
-  border: 1px solid var(--b);
-  border-radius: 12px;
-  padding: 14px;
-  margin-bottom: 14px;
+.admin-btn {
+  background: transparent; color: #cfeee0; font-size: 13px;
+  border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px; padding: 6px 12px;
 }
-.sub { color: var(--m); margin: 0 0 12px; font-size: 13px; }
-.nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.nav .p { margin-left: auto; }
+.admin-btn:hover { background: rgba(255, 255, 255, .12); }
 
-/* ===== Controles ===== */
-button, input, select {
-  font: inherit;
-  color: var(--t);
-  background: var(--campo);
-  border: 1px solid var(--b);
-  border-radius: 8px;
-  padding: 8px 12px;
-}
-button { cursor: pointer; }
-button.p { background: var(--green); border-color: var(--green); color: var(--dark); font-weight: 700; }
-button:disabled { opacity: .6; cursor: wait; }
-
-label { display: block; font-size: 13px; color: var(--m); }
-label input, label select { width: 100%; margin-top: 3px; }
-.g { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-
-/* ===== Colores de equipos ===== */
-.chip { display: inline-block; width: 14px; height: 14px; border-radius: 4px; flex: none; }
-.ley { display: flex; gap: 8px 20px; flex-wrap: wrap; }
-.ley .item { display: flex; gap: 6px; align-items: center; }
-.ley small { color: var(--m); }
-
-.eq { display: flex; gap: 8px 14px; flex-wrap: wrap; margin: 12px 0; }
-.eq label { display: flex; gap: 6px; align-items: center; color: var(--t); }
-.eq input { width: auto; margin: 0; }
-
-/* ===== Calendario ===== */
-.w { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; min-width: 560px; }
-th, td { border: 2px solid var(--linea); padding: 4px 6px; text-align: center; font-size: 13px; }
-th { background: var(--gris); }
-td.h { width: 60px; color: var(--m); background: var(--gris); }  /* columna de horas */
-td.l { cursor: pointer; }                                        /* libre */
-td.l:hover { background: #dff7ea; outline: 2px solid var(--green); }
-td.o { color: var(--dark); font-weight: 600; cursor: pointer; }  /* ocupado: el color lo pone app.js */
-td.x { background: var(--gris); color: var(--m); }               /* no disponible */
-
-/* ===== Popups ===== */
-dialog {
-  border: 0;
-  border-radius: 14px;
-  padding: 20px;
-  width: min(560px, 92vw);
-  background: var(--c);
-  color: var(--t);
-}
-dialog::backdrop { background: rgba(0, 32, 31, .6); }
-dialog h2 { margin: 0 0 4px; font-size: 18px; }
-.acciones { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
-
-.codigo {
-  font-size: 40px; font-weight: 800; letter-spacing: 8px; text-align: center;
-  background: var(--dark); color: var(--green);
-  border-radius: 10px; padding: 14px; margin: 10px 0;
-}
-
-/* ===== Mensajes y lista ===== */
-.msg { padding: 10px; border-radius: 8px; margin-top: 10px; background: var(--ok); }
-.msg.e { background: var(--err); color: var(--errt); }
-li { margin: 4px 0; }
-.can { text-decoration: line-through; color: var(--m); }
-
-/* ===== Barra lateral y vistas ===== */
-.layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
-aside .ley { flex-direction: column; }
-aside li small { color: var(--m); }
-.vistas { display: flex; gap: 4px; }
-button.on { background: var(--dark); color: #fff; border-color: var(--dark); }
-.cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-th[data-ir], td[data-ir] { cursor: pointer; }
-th.hoyc { background: var(--green); color: var(--dark); }
-td.s { padding: 1px 2px; height: 22px; }
-.segs { display: flex; gap: 1px; }
-.segs i { flex: 1; height: 16px; background: #dfe9f3; border-radius: 2px; }
-td.pas { opacity: .5; }
-td.m { height: 92px; vertical-align: top; text-align: left; }
-td.m.fuera { opacity: .4; }
-td.m.hoyc { outline: 2px solid var(--green); outline-offset: -2px; }
-td.m small { display: block; color: var(--m); }
-.chips { display: flex; gap: 3px; flex-wrap: wrap; margin: 4px 0; }
-
-/* ===== Calendario: marco y línea más gruesa en cada hora ===== */
-table { border: 3px solid var(--linea2); }
-tr.hora > td, tr.hora > th { border-top: 3px solid var(--linea2); }
-
-/* ===== Indicador de conexión ===== */
+/* Indicador de conexión */
 .enlinea {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 6px 12px; border-radius: 999px;
@@ -151,12 +59,166 @@ tr.hora > td, tr.hora > th { border-top: 3px solid var(--linea2); }
 .enlinea.viejo { --punto: #f2b705; background: rgba(242, 183, 5, .25); }
 @keyframes pulso { 50% { opacity: .35; } }
 
-/* ===== Días elegidos en el formulario ===== */
+/* ===== Estructura ===== */
+main { max-width: 1200px; margin: auto; padding: 16px; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+
+.card {
+  background: var(--c); border: 1px solid var(--b); border-radius: 14px;
+  padding: 14px; margin-bottom: 14px; box-shadow: var(--sombra);
+}
+.sub { color: var(--m); margin: 0 0 12px; font-size: 13px; }
+.cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 17px; }
+.nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.nav .p { margin-left: auto; }
+
+/* ===== Controles ===== */
+button, input, select {
+  font: inherit; color: var(--t); background: var(--campo);
+  border: 1px solid var(--b); border-radius: 8px; padding: 8px 12px;
+}
+button { cursor: pointer; transition: background .12s, border-color .12s; }
+button:hover { border-color: var(--teal); }
+button.p { background: var(--green); border-color: var(--green); color: var(--dark); font-weight: 700; }
+button.p:hover { filter: brightness(.95); }
+button.peligro { background: #b42318; border-color: #b42318; color: #fff; font-weight: 700; }
+button:disabled { opacity: .6; cursor: wait; }
+
+/* Botones Día / Semana / Mes pegados */
+.vistas { display: flex; }
+.vistas button { border-radius: 0; margin-left: -1px; }
+.vistas button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+.vistas button:last-child { border-radius: 0 8px 8px 0; }
+button.on { background: var(--dark); color: #fff; border-color: var(--dark); position: relative; }
+
+label { display: block; font-size: 13px; color: var(--m); }
+label input, label select { width: 100%; margin-top: 3px; }
+.g { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+
+/* ===== Equipos: color + leyenda ===== */
+.chip { display: inline-block; width: 14px; height: 14px; border-radius: 4px; flex: none; }
+.ley { display: flex; gap: 8px 20px; flex-wrap: wrap; }
+.ley .item { display: flex; gap: 6px; align-items: center; }
+aside .ley { flex-direction: column; }
+aside li small { color: var(--m); }
+
+.eq { display: flex; gap: 8px 14px; flex-wrap: wrap; margin: 12px 0; }
+.eq label { display: flex; gap: 6px; align-items: center; color: var(--t); }
+.eq input { width: auto; margin: 0; }
+
 .dias { margin-top: 12px; }
 #fechasSel { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-.fchip { display: inline-flex; align-items: center; gap: 4px; background: var(--dark); color: #fff;
-         border-radius: 999px; padding: 3px 6px 3px 12px; font-size: 13px; }
+.fchip {
+  display: inline-flex; align-items: center; gap: 4px; background: var(--dark); color: #fff;
+  border-radius: 999px; padding: 3px 6px 3px 12px; font-size: 13px;
+}
 .fchip button { background: transparent; border: 0; color: #7fe3b4; padding: 0 4px; font-size: 14px; }
+
+/* =====================================================
+   CALENDARIO
+   ===================================================== */
+#vista {
+  max-height: 72vh; overflow: auto;
+  border: 2px solid var(--linea2); border-radius: 12px; background: var(--celda);
+}
+
+.tabla { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 520px; table-layout: fixed; }
+.tabla th, .tabla td {
+  padding: 0; text-align: center; font-size: 13px; height: 38px;
+  border-left: 1px solid var(--linea); border-top: 1px solid var(--linea);
+}
+.tabla tr > :first-child { border-left: 0; }
+
+/* Líneas: gruesa en cada hora, punteada en la media hora */
+.tabla tr.hora > * { border-top: 2px solid var(--linea2); }
+.tabla tr.media > td { border-top: 1px dashed var(--linea); }
+
+/* Encabezado fijo arriba y columna de horas fija a la izquierda */
+.tabla th {
+  position: sticky; top: 0; z-index: 2; height: auto; padding: 9px 4px;
+  background: #dfeaf4; border-top: 0; border-bottom: 2px solid var(--linea2); font-weight: 700;
+}
+.tabla th[style] { border-top: 5px solid var(--col); }          /* barrita del color del equipo */
+.tabla th i.chip { margin-right: 6px; vertical-align: -2px; }
+.tabla th:first-child { left: 0; z-index: 3; width: 58px; }
+.tabla td.h {
+  position: sticky; left: 0; z-index: 1; width: 58px; background: #e6eef6;
+  color: var(--m); font-size: 12px; vertical-align: top; padding-top: 4px;
+}
+.tabla tr.hora > td.h { color: var(--t); font-weight: 700; }
+
+/* Celda libre */
+td.l { cursor: pointer; transition: background .12s; }
+td.l:hover { background: #d8f7e6; box-shadow: inset 0 0 0 2px var(--green); }
+td.l:hover::after { content: '+'; color: #00844a; font-weight: 800; font-size: 20px; }
+
+/* No disponible (ya pasó o falta anticipación): rayitas */
+td.x { background: repeating-linear-gradient(135deg, #e7eef5 0 6px, #dae4ee 6px 12px); color: var(--m); }
+
+/* Reserva: un solo bloque de color con el nombre y la hora */
+td.o {
+  background: var(--col); color: var(--dark); cursor: pointer; padding: 2px 4px; vertical-align: middle;
+  border-radius: 10px; box-shadow: inset 0 0 0 3px var(--celda);
+}
+td.o b, td.bq b { display: block; line-height: 1.2; }
+td.o small, td.bq small { display: block; font-size: 11px; opacity: .75; }
+td.o[rowspan="1"] small { display: none; }
+
+/* Bloqueo (clase): franjas amarillas que cubren toda la fila */
+td.bq {
+  background: repeating-linear-gradient(135deg, #fff3cd 0 10px, #ffe9a8 10px 20px);
+  color: #6b4e00; vertical-align: middle;
+}
+body.admin td.bq, body.admin td.o { cursor: pointer; }
+body:not(.admin) td.bq { cursor: default; }
+
+/* Semana: una barrita por equipo en cada celda */
+.semana th span { display: block; font-size: 11px; text-transform: uppercase; color: var(--m); }
+.semana th b { font-size: 16px; }
+th[data-ir], td[data-ir] { cursor: pointer; }
+th.hoyc { background: var(--green); color: var(--dark); }
+th.hoyc span { color: var(--dark); }
+td.s { padding: 3px 4px; height: 28px; }
+td.s:hover { background: #e3f0fb; }
+.segs { display: flex; gap: 2px; }
+.segs i { flex: 1; height: 20px; background: #e1eaf3; border-radius: 4px; }
+td.pas { opacity: .45; }
+
+/* Mes: un cuadro por día */
+td.m { height: 100px; vertical-align: top; text-align: left; padding: 6px 8px; background: var(--celda); cursor: pointer; }
+td.m:hover { background: #e3f0fb; }
+td.m > b { display: inline-grid; place-items: center; min-width: 26px; height: 26px; border-radius: 50%; }
+td.m.hoyc > b { background: var(--green); color: var(--dark); }
+td.m.fuera { opacity: .4; }
+td.m small { display: block; color: var(--m); font-size: 11px; }
+td.m small.bq { color: #8a6100; font-weight: 600; }
+.chips { display: flex; gap: 3px; flex-wrap: wrap; margin: 4px 0; }
+
+/* ===== Popups ===== */
+dialog {
+  border: 0; border-radius: 14px; padding: 20px; width: min(560px, 92vw);
+  background: var(--c); color: var(--t);
+}
+dialog::backdrop { background: rgba(0, 32, 31, .6); }
+dialog h2 { margin: 0 0 4px; font-size: 18px; }
+.acciones { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+.codigo {
+  font-size: 40px; font-weight: 800; letter-spacing: 8px; text-align: center;
+  background: var(--dark); color: var(--green); border-radius: 10px; padding: 14px; margin: 10px 0;
+}
+
+/* ===== Mensajes, lista y modo administrador ===== */
+.msg { padding: 10px; border-radius: 8px; margin-top: 10px; background: var(--ok); }
+.msg.e { background: var(--err); color: var(--errt); }
+li { margin: 4px 0; }
+.can { text-decoration: line-through; color: var(--m); }
+
+.banner-admin {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  background: #fff4cf; border: 2px solid #f2b705; color: #5c4300;
+  border-radius: 12px; padding: 10px 14px; margin-bottom: 14px;
+}
+.banner-admin span { font-weight: 700; margin-right: auto; }
 
 /* ===== Responsivo ===== */
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
@@ -166,23 +228,18 @@ tr.hora > td, tr.hora > th { border-top: 3px solid var(--linea2); }
   .top h1 { font-size: 17px; }
   .card { padding: 10px; }
 
-  /* Fecha y botón Apartar ocupan todo el ancho */
   .nav input[type="date"] { flex: 1; min-width: 130px; }
   .nav .p { margin-left: 0; width: 100%; padding: 12px; }
-
-  /* Calendario: cabe en pantalla sin deslizar de lado */
-  table { min-width: 0; table-layout: fixed; }
-  th, td { padding: 2px; font-size: 11px; }
-  td { height: 34px; }
-  td.h { width: 46px; }
-  td.o { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  .ley { gap: 6px; }
-  td.m { height: 64px; }
   .vistas { width: 100%; }
   .vistas button { flex: 1; }
 
-  /* Popups más cómodos en celular */
+  /* Calendario: cabe en pantalla sin deslizar de lado */
+  .tabla { min-width: 0; }
+  .tabla th, .tabla td { font-size: 11px; }
+  .tabla th { padding: 6px 2px; }
+  .tabla th:first-child, .tabla td.h { width: 44px; }
+  td.m { height: 64px; padding: 3px; }
+
   dialog { padding: 16px; width: 94vw; }
   .acciones { flex-direction: column-reverse; }
   .acciones button { width: 100%; padding: 12px; }

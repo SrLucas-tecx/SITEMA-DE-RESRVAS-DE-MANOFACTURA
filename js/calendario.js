@@ -10,10 +10,8 @@ const VISTAS = { dia: htmlDia, semana: htmlSemana, mes: htmlMes };
 
 // Leyenda: cuadrito de color + nombre de cada equipo
 export function dibujarLeyenda() {
-  const notas = CFG.NOTAS || {};
   $('#leyenda').innerHTML = CFG.EQUIPOS.map(e =>
-    `<span class="item"><i class="chip" style="background:${CFG.COLORES[e]}"></i><b>${e}</b>` +
-    (notas[e] ? ` <small>· ${notas[e]}</small>` : '') + '</span>').join('');
+    `<span class="item"><i class="chip" style="background:${CFG.COLORES[e]}"></i><b>${e}</b></span>`).join('');
 }
 
 function titulo() {
@@ -50,12 +48,13 @@ export function dibujar() {
 }
 
 // Clics: celda libre (día) · reserva ocupada · día (semana y mes)
-export function iniciarCalendario({ alLibre, alOcupada, alDia }) {
+export function iniciarCalendario({ alLibre, alOcupada, alDia, alBloqueo }) {
   $('#vista').onclick = ev => {
     const el = ev.target.closest('td, th');
     if (!el) return;
     if (el.dataset.t) alLibre(el.dataset.t, el.dataset.e);
     else if (el.dataset.id) alOcupada(el.dataset.id);
+    else if (el.dataset.bq) alBloqueo(...el.dataset.bq.split('|'));
     else if (el.dataset.ir) alDia(el.dataset.ir);
   };
 }

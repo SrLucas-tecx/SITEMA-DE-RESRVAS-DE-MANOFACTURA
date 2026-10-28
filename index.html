@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reservas · Celda de Manufactura</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="Style.css">
 </head>
 <body>
   <header class="top">
@@ -12,11 +12,21 @@
       <h1>Reservas · Celda de Manufactura</h1>
       <p id="modo"></p>
     </div>
-    <span class="enlinea cargando" id="enlinea">Conectando…</span>
+    <div class="top-der">
+      <span class="enlinea cargando" id="enlinea">Conectando…</span>
+      <button class="admin-btn" id="abrirLogin" title="Modo administrador">🔒 Admin</button>
+    </div>
   </header>
 
   <main>
     <div id="aviso"></div>
+
+    <!-- Solo visible en modo administrador -->
+    <div class="banner-admin" id="bannerAdmin" hidden>
+      <span>Modo administrador · toca una reserva para cancelarla o eliminarla, o un bloqueo para quitarlo</span>
+      <button id="bloquear">+ Bloquear horario</button>
+      <button id="salirAdmin">Salir</button>
+    </div>
 
     <!-- Barra superior: fecha, vista y botón para apartar -->
     <div class="card nav">
@@ -104,6 +114,47 @@
     <div class="acciones">
       <button id="cerrar">Cerrar</button>
       <button class="p" id="cancelar">Cancelar reserva</button>
+    </div>
+  </dialog>
+
+  <!-- POPUP: entrar como administrador -->
+  <dialog id="modalLogin">
+    <h2>Modo administrador</h2>
+    <label>Código de administrador <input type="password" id="acod" autocomplete="off"></label>
+    <div id="aout"></div>
+    <div class="acciones">
+      <button id="cerrarLogin">Cerrar</button>
+      <button class="p" id="entrarAdmin">Entrar</button>
+    </div>
+  </dialog>
+
+  <!-- POPUP: reserva (administrador) -->
+  <dialog id="modalAdmin">
+    <h2>Reserva</h2>
+    <p id="ainfo"></p>
+    <div id="adout"></div>
+    <div class="acciones">
+      <button id="aCerrar">Cerrar</button>
+      <button id="aCancelar">Cancelar reserva</button>
+      <button class="peligro" id="aBorrar">Eliminar</button>
+    </div>
+  </dialog>
+
+  <!-- POPUP: bloquear horario (administrador) -->
+  <dialog id="modalBloqueo">
+    <h2>Bloquear horario</h2>
+    <p class="sub">Para clases u otros usos. Nadie podrá apartar ese horario.</p>
+    <div class="g">
+      <label>Fecha <input type="date" id="bFecha"></label>
+      <label>Repetir cada semana hasta (opcional) <input type="date" id="bHasta"></label>
+      <label>Desde <select id="bIni"></select></label>
+      <label>Hasta <select id="bFin"></select></label>
+    </div>
+    <label style="margin-top:10px">Motivo <input id="bMotivo" maxlength="60" placeholder="Clase, mantenimiento…"></label>
+    <div id="bout"></div>
+    <div class="acciones">
+      <button id="bCerrar">Cerrar</button>
+      <button class="p" id="bGuardar">Bloquear</button>
     </div>
   </dialog>
 

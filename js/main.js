@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { estado } from './estado.js';
 import { dibujar, dibujarLeyenda, iniciarCalendario } from './calendario.js';
 import { iniciarModales, abrirApartar, abrirCancelar } from './modales.js';
+import { iniciarAdmin, abrirAdminReserva, quitarBloqueo } from './admin.js';
 
 $('#modo').textContent = CFG.API_URL
   ? 'Conectado a Google Sheets · datos compartidos'
@@ -61,9 +62,11 @@ window.addEventListener('online', cargar);
 dibujarLeyenda();
 iniciarCalendario({
   alLibre: (hora, equipo) => abrirApartar(estado.fecha, hora, equipo),
-  alOcupada: abrirCancelar,
+  alOcupada: id => estado.admin ? abrirAdminReserva(id) : abrirCancelar(id),
+  alBloqueo: (inicio, fin) => estado.admin && quitarBloqueo(estado.fecha, inicio, fin, cargar),
   alDia: fecha => { estado.fecha = fecha; estado.vista = 'dia'; dibujar(); }
 });
 iniciarModales(cargar);
+iniciarAdmin(cargar);
 cargar();
 setInterval(cargar, 60000);   // se actualiza solo cada minuto

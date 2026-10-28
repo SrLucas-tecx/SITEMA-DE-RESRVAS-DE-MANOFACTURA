@@ -12,10 +12,10 @@ export function htmlSemana() {
   const horaActual = ahora(), hoyStr = hoy();
 
   let html = '<table class="tabla semana"><tr><th></th>' + dias.map(d =>
-    `<th class="${d === hoyStr ? 'hoyc' : ''}" data-ir="${d}">${nombreDia(d)} ${diaDelMes(d)}</th>`).join('') + '</tr>';
+    `<th class="${d === hoyStr ? 'hoyc' : ''}" data-ir="${d}"><span>${nombreDia(d)}</span><b>${diaDelMes(d)}</b></th>`).join('') + '</tr>';
 
   for (const t of bloques) {
-    html += `<tr${t % 60 === 0 ? ' class="hora"' : ''}><td class="h">${aHora(t)}</td>`;
+    html += `<tr class="${t % 60 === 0 ? 'hora' : 'media'}"><td class="h">${aHora(t)}</td>`;
     for (const d of dias) {
       if (bloqueado(d, t)) {
         html += `<td class="x" data-ir="${d}">—</td>`;
