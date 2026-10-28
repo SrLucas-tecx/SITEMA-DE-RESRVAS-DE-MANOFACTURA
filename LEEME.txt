@@ -1,21 +1,28 @@
 RESERVAS · CELDA DE MANUFACTURA
 
-ESTRUCTURA (la carpeta js debe quedar JUNTO a index.html)
+ESTRUCTURA (la carpeta js debe quedar JUNTO a index.html y con TODOS sus archivos)
   index.html
   style.css
-  js/            (config, utils, horario, estado, validacion, api,
-                  vistaDia, vistaSemana, vistaMes, calendario, modales, main)
+  js/            (config, utils, horario, estado, validacion, api, vistaDia, vistaSemana,
+                  vistaMes, calendario, modales, admin, main)  -> 13 archivos
   apps-script/Code.gs   (NO se sube a GitHub: se pega en Google Apps Script)
 
 PROBAR EN LA COMPU
   1. Abre en VS Code la carpeta "reservas-celda" (Archivo > Abrir carpeta).
   2. Clic derecho en index.html > Open with Live Server.
+  3. Abre la consola (F12): no debe haber errores rojos de "404 (Not Found)".
+     Los errores "runtime.lastError ... message port closed" vienen de una
+     extensión del navegador y no afectan.
 
 SUBIR A GITHUB
   Sube index.html, style.css y la carpeta js completa a la raíz del repositorio.
 
 GOOGLE SHEETS (cada vez que cambie Code.gs)
   1. Pega Code.gs completo en Apps Script y vuelve a poner tu código ADMIN.
-  2. Ejecuta la función configurar() una vez (agrega la columna "otros").
+  2. Ejecuta la función configurar() una vez.
   3. Implementar > Administrar implementaciones > lápiz > Versión nueva.
-  4. Borra las reservas de prueba viejas de la pestaña Reservas.
+  4. Recarga la página: la pastilla de arriba debe salir en verde "En línea".
+     Si sale amarilla, el script publicado está desactualizado (falta la Versión nueva).
+
+MODO ADMINISTRADOR
+  Botón "Admin" arriba a la derecha. Pide el código ADMIN de Code.gs.
