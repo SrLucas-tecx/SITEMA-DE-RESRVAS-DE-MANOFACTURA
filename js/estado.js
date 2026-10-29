@@ -9,7 +9,8 @@ export const estado = {
   seleccionada: null,            // id de la reserva que se quiere cancelar
   admin: null,                   // código de administrador (solo en memoria; al recargar se sale)
   pantalla: 'calendario',        // 'calendario' | 'admin'
-  seccion: 'celda'               // 'celda' | 'labs' (pestaña del calendario)
+  seccion: 'celda',              // 'celda' | 'labs' (pestaña del calendario)
+  labId: null                    // laboratorio que se está viendo en la pestaña Laboratorios
 };
 
 /* ---------- Material de la celda (lo registra el administrador) ---------- */
@@ -52,3 +53,6 @@ export const bloqueado = (fecha, t) => !!bloqueoEn(fecha, t);
 export const laboratorios = () => estado.datos.laboratorios || [];
 export const usoLabTodos = () => estado.datos.usoLab || [];
 export const usoLab = fecha => usoLabTodos().filter(u => u.fecha === fecha);
+
+// Laboratorio elegido (si ya no existe, el primero)
+export const labActual = () => laboratorios().find(l => l.id === estado.labId) || laboratorios()[0];

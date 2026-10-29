@@ -12,7 +12,7 @@ const error = (donde, texto) => { $(donde).innerHTML = `<div class="msg e">${esc
 const sinConexion = { error: 'Sin conexión con el servidor.' };
 
 /* ---------- Pantallas: calendario o panel de administración ---------- */
-function mostrarPantalla(cual) {
+export function mostrarPantalla(cual) {
   estado.pantalla = cual;
   const admin = !!estado.admin, enPanel = admin && cual === 'admin';
   $('#pantallaAdmin').hidden = !enPanel;
@@ -191,8 +191,8 @@ async function guardarBloqueo(recargar) {
 }
 
 /* ---------- Inicio ---------- */
-export function iniciarAdmin(recargar) {
-  iniciarAdminLabs(recargar);
+export function iniciarAdmin(recargar, verLab) {
+  iniciarAdminLabs(recargar, verLab);
   $('#bIni').innerHTML = bloques.map(t => `<option>${aHora(t)}</option>`).join('');
   $('#bFin').innerHTML = bloques.map(t => `<option>${aHora(t + 30)}</option>`).join('');
 

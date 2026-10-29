@@ -48,7 +48,7 @@ const Local = {
     const pin = String(1000 + Math.floor(Math.random() * 9000));   // un código para todos los días
     r.fechas.forEach((f, i) => {
       const { fechas, ...resto } = r;
-      todas.push({ ...resto, fecha: f, id: Date.now().toString(36) + i, pin, estado: 'Activa' });
+      todas.push({ ...resto, fecha: f, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
     });
     guardarLocal(todas);
     return { ok: 1, pin, n: r.fechas.length };
@@ -152,7 +152,7 @@ const Local = {
     const datos = { nombre, ubicacion: String(o.ubicacion || '').trim().slice(0, 60), abre: o.abre, cierra: o.cierra };
     const i = lista.findIndex(l => l.id === o.id);
     if (o.id && i < 0) return { error: 'Laboratorio no encontrado.' };
-    if (i >= 0) lista[i] = { id: o.id, ...datos }; else lista.push({ id: Date.now().toString(36), ...datos });
+    if (i >= 0) lista[i] = { id: o.id, ...datos }; else lista.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...datos });
     localStorage.setItem(LSL, JSON.stringify(lista));
     return { ok: 1 };
   },

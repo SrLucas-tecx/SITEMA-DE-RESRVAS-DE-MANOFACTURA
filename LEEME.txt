@@ -4,8 +4,8 @@ ESTRUCTURA (la carpeta js debe quedar JUNTO a index.html y con TODOS sus archivo
   index.html
   style.css
   js/            (config, utils, horario, estado, validacion, api, mensajes, disponibles,
-                  vistaDia, vistaSemana, vistaMes, calendario, laboratorios, modales,
-                  adminLabs, admin, main)  -> 17 archivos
+                  vistaDia, vistaSemana, vistaMes, calendario, labDatos, vistaLab,
+                  laboratorios, modales, adminLabs, admin, main)  -> 19 archivos
   apps-script/Code.gs   (NO se sube a GitHub: se pega en Google Apps Script)
 
 PROBAR EN LA COMPU
@@ -17,6 +17,7 @@ PROBAR EN LA COMPU
 
 SUBIR A GITHUB
   Sube index.html, style.css y la carpeta js completa a la raíz del repositorio.
+  Borra del repositorio los archivos de js/ que ya no estén en esta carpeta.
 
 GOOGLE SHEETS (cada vez que cambie Code.gs)
   1. Pega Code.gs completo en Apps Script y vuelve a poner tu código ADMIN.
@@ -28,4 +29,4 @@ GOOGLE SHEETS (cada vez que cambie Code.gs)
 MODO ADMINISTRADOR
   Botón "Admin" arriba a la derecha. Pide el código ADMIN de Code.gs y abre el panel:
   material de la celda, sábados y domingos autorizados, horarios bloqueados,
-  laboratorios y su ocupación, y reservas.
+  laboratorios (con su calendario propio) y su ocupación, y reservas.

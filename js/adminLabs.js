@@ -2,7 +2,7 @@
 import { CFG } from './config.js';
 import { $, aMinutos, aHora, escapar, hoy, sumarDias } from './utils.js';
 import { api } from './api.js';
-import { estado, laboratorios, usoLabTodos } from './estado.js';
+import { estado, laboratorios, usoLabTodos, labActual } from './estado.js';
 import { bloques } from './horario.js';
 import { NOMBRE_EQUIPO } from './validacion.js';
 import { mensaje, ejecutar } from './mensajes.js';
@@ -10,6 +10,7 @@ import { mensaje, ejecutar } from './mensajes.js';
 const error = (donde, texto) => { $(donde).innerHTML = `<div class="msg e">${escapar(texto)}</div>`; };
 const sinConexion = { error: 'Sin conexión con el servidor.' };
 let editando = null;   // id del laboratorio que se está editando (null = uno nuevo)
+let verLab = () => {}; // abre el calendario propio de un laboratorio (lo define main.js)
 
 /* ---------- Listas del panel ---------- */
 export function dibujarAdminLabs() {
@@ -17,7 +18,7 @@ export function dibujarAdminLabs() {
 
   $('#listaLabs').innerHTML = laboratorios().map(l =>
     `<li><span><b>${escapar(l.nombre)}</b> · ${l.abre}–${l.cierra}${l.ubicacion ? ' · ' + escapar(l.ubicacion) : ''}</span>` +
-    `<span class="acc"><button data-lab-edit="${escapar(l.id)}">Editar</button>` +
+    `<span class="acc"><button class="p" data-lab-ver="${escapar(l.id)}">Ver calendario</button><button data-lab-edit="${escapar(l.id)}">Editar</button>` +
     `<button class="peligro" data-lab-del="${escapar(l.id)}">Quitar</button></span></li>`).join('')
     || '<li class="sub">Todavía no hay laboratorios. Agrega el primero.</li>';
 
@@ -30,7 +31,8 @@ export function dibujarAdminLabs() {
 
 function clic(ev, recargar) {
   const d = ev.target.dataset, admin = estado.admin;
-  if (d.labEdit !== undefined) abrirLab(d.labEdit);
+  if (d.labVer !== undefined) verLab(d.labVer);
+  else if (d.labEdit !== undefined) abrirLab(d.labEdit);
   else if (d.labDel !== undefined) {
     const lab = laboratorios().find(l => l.id === d.labDel);
     ejecutar(`¿Quitar el laboratorio "${lab ? lab.nombre : ''}"? También se borran sus ocupaciones registradas.`,
@@ -68,10 +70,18 @@ async function guardarLab(recargar) {
 }
 
 /* ---------- Registrar cuándo está ocupado ---------- */
-function abrirUso() {
+// prefill (opcional): { lab, fecha, inicio } cuando se toca una celda libre del calendario del laboratorio
+export function abrirUso(prefill = {}) {
   if (!laboratorios().length) return mensaje('Primero agrega un laboratorio.');
   $('#uLab').innerHTML = laboratorios().map(l => `<option value="${escapar(l.id)}">${escapar(l.nombre)}</option>`).join('');
-  $('#uFecha').value = estado.fecha;
+  $('#uLab').value = prefill.lab || (labActual() || {}).id;
+  $('#uFecha').value = prefill.fecha || estado.fecha;
+  $('#uIni').selectedIndex = 0;
+  $('#uFin').selectedIndex = 1;
+  if (prefill.inicio) {
+    $('#uIni').value = prefill.inicio;
+    $('#uFin').value = aHora(aMinutos(prefill.inicio) + 30);
+  }
   $('#uHasta').value = '';
   $('#uMotivo').value = '';
   $('#uout').innerHTML = '';
@@ -96,7 +106,15 @@ async function guardarUso(recargar) {
 }
 
 /* ---------- Inicio ---------- */
-export function iniciarAdminLabs(recargar) {
+// Clic en un bloque ocupado del calendario del laboratorio con el modo admin activo: preguntar y quitarlo
+export function quitarOcupacion(fecha, inicio, fin, recargar) {
+  const lab = labActual();
+  return ejecutar(`¿Quitar la ocupación de ${lab.nombre} del ${fecha} de ${inicio} a ${fin}?`,
+    () => api.labLiberar({ admin: estado.admin, lab: lab.id, fecha, inicio, fin }), recargar);
+}
+
+export function iniciarAdminLabs(recargar, verCalendario) {
+  verLab = verCalendario;
   const horas = bloques.map(t => `<option>${aHora(t)}</option>`).join('');
   const fines = bloques.map(t => `<option>${aHora(t + 30)}</option>`).join('');
   $('#lAbre').innerHTML = horas;    $('#lCierra').innerHTML = fines;
@@ -105,7 +123,7 @@ export function iniciarAdminLabs(recargar) {
   $('#adminLabs').onclick = ev => clic(ev, recargar);
   $('#adminUsoLab').onclick = ev => clic(ev, recargar);
   $('#nuevoLab').onclick = () => abrirLab();
-  $('#nuevoUso').onclick = abrirUso;
+  $('#nuevoUso').onclick = () => abrirUso();
   $('#lCerrar').onclick = () => $('#modalLab').close();
   $('#lGuardar').onclick = () => guardarLab(recargar);
   $('#uCerrar').onclick = () => $('#modalUsoLab').close();

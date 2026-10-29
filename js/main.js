@@ -5,7 +5,9 @@ import { api } from './api.js';
 import { estado } from './estado.js';
 import { dibujar, iniciarCalendario } from './calendario.js';
 import { iniciarModales, abrirApartar, abrirCancelar } from './modales.js';
-import { iniciarAdmin, dibujarAdmin, abrirAdminReserva, quitarBloqueo } from './admin.js';
+import { iniciarAdmin, dibujarAdmin, mostrarPantalla, abrirAdminReserva, quitarBloqueo } from './admin.js';
+import { iniciarLabs } from './laboratorios.js';
+import { abrirUso, quitarOcupacion } from './adminLabs.js';
 import { iniciarDias } from './disponibles.js';
 import { mensaje } from './mensajes.js';
 
@@ -53,8 +55,7 @@ async function cargar() {
 // Navegación: ◀ ▶ mueven un día, una semana o un mes según la vista
 function irA(fecha) { estado.fecha = fecha || hoy(); dibujar(); }
 function mover(n) {
-  if (estado.seccion === 'labs') irA(sumarDias(estado.fecha, n));   // laboratorios: de día en día
-  else if (estado.vista === 'mes') irA(sumarMeses(estado.fecha, n));
+  if (estado.vista === 'mes') irA(sumarMeses(estado.fecha, n));
   else irA(sumarDias(estado.fecha, estado.vista === 'semana' ? 7 * n : n));
 }
 $('#fecha').onchange = e => irA(e.target.value);
@@ -63,14 +64,22 @@ $('#next').onclick = () => mover(1);
 $('#hoy').onclick = () => irA(hoy());
 
 // Pestañas: Celda de manufactura / Laboratorios
+function cambiarSeccion(seccion) {
+  estado.seccion = seccion;
+  document.body.classList.toggle('sec-labs', seccion === 'labs');
+  document.querySelectorAll('[data-sec]').forEach(b => b.classList.toggle('on', b.dataset.sec === seccion));
+  dibujar();
+}
 document.querySelectorAll('[data-sec]').forEach(boton => {
-  boton.onclick = () => {
-    estado.seccion = boton.dataset.sec;
-    document.body.classList.toggle('sec-labs', estado.seccion === 'labs');
-    document.querySelectorAll('[data-sec]').forEach(b => b.classList.toggle('on', b === boton));
-    dibujar();
-  };
+  boton.onclick = () => cambiarSeccion(boton.dataset.sec);
 });
+
+// Desde el panel de administración: abrir el calendario propio de un laboratorio
+function irALab(id) {
+  estado.labId = id;
+  mostrarPantalla('calendario');
+  cambiarSeccion('labs');
+}
 
 // Cambiar de vista
 document.querySelectorAll('[data-v]').forEach(b => {
@@ -89,7 +98,12 @@ iniciarCalendario({
   alDia: fecha => { estado.fecha = fecha; estado.vista = 'dia'; dibujar(); }
 });
 iniciarModales(cargar);
-iniciarAdmin(cargar);
+iniciarAdmin(cargar, irALab);
+iniciarLabs({
+  alLibre: (fecha, hora) => estado.admin && abrirUso({ lab: estado.labId, fecha, inicio: hora }),   // solo el administrador
+  alOcupado: (fecha, inicio, fin) => estado.admin && quitarOcupacion(fecha, inicio, fin, cargar),
+  alDia: fecha => { estado.fecha = fecha; estado.vista = 'dia'; dibujar(); }
+});
 iniciarDias(fecha => { estado.fecha = fecha; estado.vista = 'dia'; dibujar(); });
 cargar();
 setInterval(cargar, 60000);   // se actualiza solo cada minuto

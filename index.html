@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reservas · Celda de Manufactura</title>
-  <link rel="stylesheet" href="Style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="top">
@@ -40,7 +40,7 @@
       <button id="next">▶</button>
       <button id="hoy">Hoy</button>
       <button class="solo-celda" id="abrirDias">📅 Días disponibles</button>
-      <div class="vistas solo-celda">
+      <div class="vistas">
         <button data-v="dia">Día</button>
         <button data-v="semana">Semana</button>
         <button data-v="mes">Mes</button>
@@ -81,9 +81,31 @@
 
     <!-- LABORATORIOS -->
     <div id="seccionLabs">
-      <div class="cab"><b class="grande" id="tituloLabs"></b></div>
-      <p class="sub">Si cada laboratorio está libre u ocupado. Cambia el día con las flechas de arriba.</p>
-      <div class="labs-grid" id="listaLabsPublica"></div>
+      <div class="layout">
+        <!-- Calendario propio del laboratorio elegido -->
+        <section class="card">
+          <div class="cab"><b class="grande" id="tituloLabs"></b></div>
+          <p class="sub" id="subLab"></p>
+          <div id="vistaLab"></div>
+          <p class="sub" style="margin:8px 0 0">Verde = libre · rayas amarillas = ocupado · rayas grises = cerrado. En Semana y Mes toca un día para verlo por horas. Elige otro laboratorio en la lista.</p>
+        </section>
+
+        <!-- Lista de laboratorios -->
+        <aside>
+          <div class="card">
+            <b>Laboratorios</b>
+            <div class="labs-lista" id="listaLabsPublica"></div>
+          </div>
+          <div class="card">
+            <b>Disponibilidad</b>
+            <div class="ley" style="margin-top:8px">
+              <span class="item"><i class="chip libre"></i>Libre</span>
+              <span class="item"><i class="chip bq"></i>Ocupado</span>
+              <span class="item"><i class="chip no"></i>Cerrado</span>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   </main>
 

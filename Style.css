@@ -305,3 +305,20 @@ body:not(.sec-labs) #seccionLabs { display: none; }
 .seg.cerrado { background: repeating-linear-gradient(135deg, #e7eef5 0 6px, #c3d0de 6px 12px); }
 .horas { display: flex; justify-content: space-between; color: var(--m); }
 .usos { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+
+/* ===== Calendario propio de cada laboratorio ===== */
+.labs-lista { display: grid; gap: 8px; margin-top: 8px; }
+.lab-item { display: grid; gap: 6px; text-align: left; padding: 10px; border: 2px solid var(--b); border-radius: 12px; background: var(--campo); }
+.lab-item.sel { border-color: var(--teal); box-shadow: 0 0 0 2px var(--green); }
+.lab-item b { display: block; }
+.lab-item small { display: block; color: var(--m); font-weight: 400; }
+.lab-item .estado-lab { justify-self: start; text-align: left; }
+.barra.mini { height: 10px; margin: 0; border-width: 1px; }
+
+td.ll { background: #e2f6ea; }                                    /* libre */
+body.admin td.ll { cursor: pointer; }
+body.admin td.ll:hover { background: #c4f0d6; box-shadow: inset 0 0 0 2px var(--green); }
+td.lo { background: repeating-linear-gradient(135deg, #fff3cd 0 10px, #ffe9a8 10px 20px); color: #6b4e00; vertical-align: middle; }   /* ocupado */
+td.lo b { display: block; line-height: 1.2; }
+td.lo small { display: block; font-size: 11px; opacity: .75; }
+body.admin td.lo { cursor: pointer; }
