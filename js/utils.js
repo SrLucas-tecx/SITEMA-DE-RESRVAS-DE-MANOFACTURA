@@ -74,3 +74,9 @@ export function nombreMes(fecha) {
   const d = new Date(fecha + 'T12:00');
   return MESES[d.getMonth()] + ' ' + d.getFullYear();
 }
+
+// ¿Es sábado o domingo?
+export function esFinDeSemana(fecha) {
+  const dia = new Date(fecha + 'T12:00').getDay();
+  return dia === 0 || dia === 6;
+}

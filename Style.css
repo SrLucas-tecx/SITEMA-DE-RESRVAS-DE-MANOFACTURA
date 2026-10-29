@@ -148,8 +148,8 @@ aside li small { color: var(--m); }
 .tabla tr.hora > td.h { color: var(--t); font-weight: 700; }
 
 /* Celda libre */
-td.l { cursor: pointer; transition: background .12s; }
-td.l:hover { background: #d8f7e6; box-shadow: inset 0 0 0 2px var(--green); }
+td.l { cursor: pointer; background: #e2f6ea; transition: background .12s; }   /* libre: verde suave */
+td.l:hover { background: #c4f0d6; box-shadow: inset 0 0 0 2px var(--green); }
 td.l:hover::after { content: '+'; color: #00844a; font-weight: 800; font-size: 20px; }
 
 /* No disponible (ya pasó o falta anticipación): rayitas */
@@ -245,3 +245,63 @@ li { margin: 4px 0; }
   .acciones button { width: 100%; padding: 12px; }
   .codigo { font-size: 32px; letter-spacing: 5px; }
 }
+
+/* ===== Pantalla del administrador ===== */
+.grande { font-size: 18px; }
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 14px; align-items: start; }
+.lista-admin { list-style: none; padding: 0; margin: 8px 0 0; }
+.lista-admin li { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--b); }
+.lista-admin li:first-child { border-top: 0; }
+.lista-admin li > span:first-of-type:not(.acc) { flex: 1; }
+.lista-admin .acc { margin-left: auto; display: flex; gap: 6px; }
+.lista-admin button { padding: 4px 10px; font-size: 13px; }
+input[type="color"] { height: 40px; padding: 2px 4px; cursor: pointer; }
+
+/* Fines de semana cerrados */
+th.finde { background: repeating-linear-gradient(135deg, #dfe7ef 0 6px, #d3dde8 6px 12px); color: var(--m); }
+td.m.prohibido { background: repeating-linear-gradient(135deg, #eef3f8 0 6px, #e1e9f1 6px 12px); cursor: default; }
+td.m small.aut { color: #00844a; font-weight: 600; }
+
+/* ===== Disponibilidad: libre = verde, no disponible = rayas ===== */
+.segs i.libre { background: #bfeed3; }
+.segs i.no { background: repeating-linear-gradient(135deg, #e7eef5 0 4px, #c3d0de 4px 8px); }
+td.m.disp { background: #e2f6ea; }
+td.m.disp:hover { background: #c4f0d6; }
+td.m.nodisp { background: repeating-linear-gradient(135deg, #eef3f8 0 6px, #dde6ef 6px 12px); }
+body td.bq[data-ir] { cursor: pointer; }
+.chip.libre { background: #bfeed3; border: 1px solid #7cc79b; }
+.chip.no { background: repeating-linear-gradient(135deg, #e7eef5 0 3px, #b3c3d4 3px 6px); }
+.chip.bq { background: repeating-linear-gradient(135deg, #fff3cd 0 3px, #f2b705 3px 6px); }
+
+/* Los usuarios normales no ven el estado de la conexión con Google (solo el administrador) */
+body:not(.admin) #enlinea, body:not(.admin) #modo { display: none; }
+
+/* ===== Ventana de avisos y días disponibles ===== */
+#mTexto { white-space: pre-line; margin: 10px 0 0; }
+.dias-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 10px; }
+.dia-btn { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; line-height: 1.2; background: #e2f6ea; border-color: #7cc79b; }
+.dia-btn:hover { background: #c4f0d6; }
+.dia-btn span, .dia-btn small { font-size: 11px; text-transform: uppercase; color: var(--m); }
+.dia-btn b { font-size: 18px; }
+
+/* ===== Pestañas y laboratorios ===== */
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.tabs button { border-radius: 999px; padding: 8px 18px; font-weight: 600; }
+body.sec-labs #seccionCelda, body.sec-labs .solo-celda { display: none; }
+body:not(.sec-labs) #seccionLabs { display: none; }
+
+.labs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 14px; }
+.lab { background: var(--c); border: 1px solid var(--b); border-radius: 14px; padding: 14px; box-shadow: var(--sombra); }
+.lab-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.lab-cab small { display: block; color: var(--m); }
+.estado-lab { border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700; text-align: right; }
+.estado-lab.libre { background: #bfeed3; color: #05472a; }
+.estado-lab.ocupado { background: #ffe9a8; color: #6b4e00; }
+.estado-lab.cerrado { background: #d7e0ea; color: var(--m); }
+.barra { position: relative; height: 24px; border-radius: 6px; overflow: hidden; margin: 12px 0 4px; border: 2px solid var(--linea2); background: #bfeed3; }
+.seg { position: absolute; top: 0; bottom: 0; }
+.seg.libre { background: #bfeed3; }
+.seg.ocupado { background: repeating-linear-gradient(135deg, #fff3cd 0 6px, #f2b705 6px 12px); }
+.seg.cerrado { background: repeating-linear-gradient(135deg, #e7eef5 0 6px, #c3d0de 6px 12px); }
+.horas { display: flex; justify-content: space-between; color: var(--m); }
+.usos { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }

@@ -1,9 +1,9 @@
 /* Popups: apartar una reserva (uno o varios días) y cancelarla */
 import { CFG } from './config.js';
-import { $, aMinutos, aHora, escapar, nombreDia, diaDelMes } from './utils.js';
+import { $, aMinutos, aHora, escapar, nombreDia, diaDelMes, sumarDias } from './utils.js';
 import { validar, fechaMinima } from './validacion.js';
 import { api } from './api.js';
-import { estado } from './estado.js';
+import { estado, nombresEquipos, colorDe, autorizados, diaProhibido } from './estado.js';
 import { bloques } from './horario.js';
 
 const casillas = () => [...document.querySelectorAll('#eq input')];
@@ -26,6 +26,10 @@ function agregarFecha() {
     $('#out').innerHTML = `<div class="msg e">Hay que apartar con ${CFG.DIAS_ANTICIPACION} días de anticipación. Primer día disponible: ${fechaMinima()}.</div>`;
     return;
   }
+  if (diaProhibido(f)) {
+    $('#out').innerHTML = '<div class="msg e">Los sábados y domingos no se pueden apartar (solo con autorización del administrador).</div>';
+    return;
+  }
   if (fechasSel.length >= CFG.MAX_DIAS) {
     $('#out').innerHTML = `<div class="msg e">Máximo ${CFG.MAX_DIAS} días por reserva.</div>`;
     return;
@@ -36,13 +40,23 @@ function agregarFecha() {
   dibujarFechas();
 }
 
+// El material lo registra el administrador, por eso se dibuja cada vez que se abre el popup
+function dibujarEquipos() {
+  $('#eq').innerHTML = nombresEquipos().map(e =>
+    `<label><input type="checkbox" value="${escapar(e)}"><i class="chip" style="background:${colorDe(e)}"></i>${escapar(e)}</label>`).join('')
+    || '<span class="sub">Todavía no hay material registrado.</span>';
+}
+
 /* ---------- Abrir popups ---------- */
 // Con hora y equipo (clic en una celda libre) deja el formulario ya llenado
 export function abrirApartar(fecha, inicio, equipo) {
   const minimo = fechaMinima();
   $('#fechaR').min = minimo;
-  fechasSel = [fecha && fecha >= minimo ? fecha : minimo];
+  let primero = minimo;                       // primer día que se puede apartar (sin fin de semana cerrado)
+  while (diaProhibido(primero)) primero = sumarDias(primero, 1);
+  fechasSel = [fecha && fecha >= minimo && !diaProhibido(fecha) ? fecha : primero];
   dibujarFechas();
+  dibujarEquipos();
   if (inicio) {
     $('#inicio').value = inicio;
     casillas().forEach(c => c.checked = (c.value === equipo));
@@ -83,7 +97,7 @@ async function apartar(recargar) {
     return;
   }
   for (const f of r.fechas) {
-    const error = validar({ ...r, fecha: f }, activas, estado.datos.blq);
+    const error = validar({ ...r, fecha: f }, activas, estado.datos.blq, autorizados());
     if (error) {
       const dia = r.fechas.length > 1 ? etiqueta(f) + ': ' : '';
       $('#out').innerHTML = `<div class="msg e">${escapar(dia + error)}</div>`;
@@ -137,8 +151,6 @@ export function iniciarModales(recargar) {
   $('#inicio').innerHTML = bloques.map(t => `<option>${aHora(t)}</option>`).join('');
   $('#dur').innerHTML = Array.from({ length: CFG.MAX_BLOQUES }, (_, i) =>
     `<option value="${i + 1}">${(i + 1) * 30} min</option>`).join('');
-  $('#eq').innerHTML = CFG.EQUIPOS.map(e =>
-    `<label><input type="checkbox" value="${e}"><i class="chip" style="background:${CFG.COLORES[e]}"></i>${e}</label>`).join('');
 
   // Días: al elegir una fecha se agrega; la ✕ la quita
   $('#fechaR').onchange = agregarFecha;

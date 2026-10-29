@@ -1,7 +1,7 @@
 /* Calendario: elige la vista (día / semana / mes) y dibuja leyenda y lista del día */
-import { CFG } from './config.js';
 import { $, escapar, nombreDia, nombreMes, inicioSemana, sumarDias } from './utils.js';
-import { estado, reservasDe } from './estado.js';
+import { estado, reservasDe, listaEquipos, colorDe } from './estado.js';
+import { dibujarLabs } from './laboratorios.js';
 import { htmlDia } from './vistaDia.js';
 import { htmlSemana } from './vistaSemana.js';
 import { htmlMes } from './vistaMes.js';
@@ -10,8 +10,9 @@ const VISTAS = { dia: htmlDia, semana: htmlSemana, mes: htmlMes };
 
 // Leyenda: cuadrito de color + nombre de cada equipo
 export function dibujarLeyenda() {
-  $('#leyenda').innerHTML = CFG.EQUIPOS.map(e =>
-    `<span class="item"><i class="chip" style="background:${CFG.COLORES[e]}"></i><b>${e}</b></span>`).join('');
+  $('#leyenda').innerHTML = listaEquipos().map(e =>
+    `<span class="item"><i class="chip" style="background:${colorDe(e.nombre)}"></i><b>${escapar(e.nombre)}</b></span>`).join('')
+    || '<span class="sub">Sin material registrado.</span>';
 }
 
 function titulo() {
@@ -40,11 +41,13 @@ function dibujarLista() {
 }
 
 export function dibujar() {
+  dibujarLeyenda();
   $('#fecha').value = estado.fecha;
   $('#tituloVista').textContent = titulo();
   $('#vista').innerHTML = VISTAS[estado.vista]();
   document.querySelectorAll('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === estado.vista));
   dibujarLista();
+  dibujarLabs();
 }
 
 // Clics: celda libre (día) · reserva ocupada · día (semana y mes)

@@ -1,12 +1,16 @@
 /* Validación de reservas (horario, duración, bloqueos y choques) */
 import { CFG } from './config.js';
-import { aMinutos, ahora, chocan, hoy, sumarDias } from './utils.js';
+import { aMinutos, ahora, chocan, hoy, sumarDias, esFinDeSemana } from './utils.js';
 
 // Primer día que ya se puede apartar (hoy + días de anticipación)
 export const fechaMinima = () => sumarDias(hoy(), CFG.DIAS_ANTICIPACION);
 
-// Devuelve un texto con el error, o null si la reserva es válida
-export function validar(r, reservas, bloqueos) {
+// Nombre permitido para un material (letras, números, espacios y + - / ( ) .)
+export const NOMBRE_EQUIPO = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 +\-\/().]{1,30}$/;
+
+// Devuelve un texto con el error, o null si la reserva es válida.
+// autorizados = sábados o domingos que el administrador permitió: [{ fecha, motivo }]
+export function validar(r, reservas, bloqueos, autorizados = []) {
   if (!r.nombre || r.nombre.trim().length < 3) return 'Escribe tu nombre completo.';
   if (!r.matricula || r.matricula.trim().length < 4) return 'Escribe tu matrícula.';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(r.fecha)) return 'Elige una fecha.';
@@ -23,6 +27,9 @@ export function validar(r, reservas, bloqueos) {
   }
   if (r.fecha < fechaMinima()) {
     return 'Hay que apartar con ' + CFG.DIAS_ANTICIPACION + ' días de anticipación. Primer día disponible: ' + fechaMinima() + '.';
+  }
+  if (esFinDeSemana(r.fecha) && !autorizados.some(a => a.fecha === r.fecha)) {
+    return 'Los sábados y domingos no se pueden apartar (solo con autorización del administrador).';
   }
   if (r.fecha + ' ' + r.inicio < ahora()) return 'Ese horario ya pasó.';
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reservas · Celda de Manufactura</title>
-  <link rel="stylesheet" href="Style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="top">
@@ -18,14 +18,19 @@
     </div>
   </header>
 
-  <main>
-    <div id="aviso"></div>
+  <main id="pantallaCalendario">
 
     <!-- Solo visible en modo administrador -->
     <div class="banner-admin" id="bannerAdmin" hidden>
       <span>Modo administrador · toca una reserva para cancelarla o eliminarla, o un bloqueo para quitarlo</span>
-      <button id="bloquear">+ Bloquear horario</button>
+      <button class="p" id="irPanel">Panel de administración</button>
       <button id="salirAdmin">Salir</button>
+    </div>
+
+    <!-- Pestañas -->
+    <div class="tabs">
+      <button data-sec="celda" class="on">Celda de manufactura</button>
+      <button data-sec="labs">Laboratorios</button>
     </div>
 
     <!-- Barra superior: fecha, vista y botón para apartar -->
@@ -34,20 +39,22 @@
       <input type="date" id="fecha">
       <button id="next">▶</button>
       <button id="hoy">Hoy</button>
-      <div class="vistas">
+      <button class="solo-celda" id="abrirDias">📅 Días disponibles</button>
+      <div class="vistas solo-celda">
         <button data-v="dia">Día</button>
         <button data-v="semana">Semana</button>
         <button data-v="mes">Mes</button>
       </div>
-      <button class="p" id="abrirApartar">+ Apartar</button>
+      <button class="p solo-celda" id="abrirApartar">+ Apartar</button>
     </div>
 
+    <div id="seccionCelda">
     <div class="layout">
       <!-- Calendario (día, semana o mes) -->
       <section class="card w">
         <div class="cab"><b id="tituloVista"></b></div>
         <div id="vista"></div>
-        <p class="sub" style="margin:8px 0 0">En la vista Día toca una celda libre para apartar o una de color para cancelar. En Semana y Mes toca un día para verlo por horas. Gris = no disponible.</p>
+        <p class="sub" style="margin:8px 0 0">Verde = libre · rayas = no disponible · color = reservado. En la vista Día toca una celda verde para apartar o una de color para cancelar. En Semana y Mes toca un día para verlo por horas.</p>
       </section>
 
       <!-- Barra lateral -->
@@ -57,10 +64,77 @@
           <div class="ley" id="leyenda" style="margin-top:8px"></div>
         </div>
         <div class="card">
+          <b>Disponibilidad</b>
+          <div class="ley" style="margin-top:8px">
+            <span class="item"><i class="chip libre"></i>Libre</span>
+            <span class="item"><i class="chip no"></i>No disponible</span>
+            <span class="item"><i class="chip bq"></i>Clase o bloqueo</span>
+          </div>
+        </div>
+        <div class="card">
           <b id="tituloLista">Reservas del día</b>
           <ul id="lista"></ul>
         </div>
       </aside>
+    </div>
+    </div>
+
+    <!-- LABORATORIOS -->
+    <div id="seccionLabs">
+      <div class="cab"><b class="grande" id="tituloLabs"></b></div>
+      <p class="sub">Si cada laboratorio está libre u ocupado. Cambia el día con las flechas de arriba.</p>
+      <div class="labs-grid" id="listaLabsPublica"></div>
+    </div>
+  </main>
+
+  <!-- PANTALLA DEL ADMINISTRADOR -->
+  <main id="pantallaAdmin" hidden>
+    <div class="card nav">
+      <b class="grande">Panel de administración</b>
+      <button class="p" id="verCalendario">← Ver calendario</button>
+      <button id="salirAdmin2">Salir</button>
+    </div>
+
+    <div class="admin-grid">
+      <section class="card">
+        <div class="cab"><b>Material de la celda</b><button class="p" id="nuevoEquipo">+ Agregar</button></div>
+        <p class="sub">Cada material es una columna del calendario y se puede apartar por separado. Si dos partes solo se usan juntas (por ejemplo banda y cámara), regístralas como un solo material. Al editar el nombre, las reservas existentes se actualizan.</p>
+        <ul class="lista-admin" id="listaEquipos"></ul>
+      </section>
+
+      <section class="card">
+        <div class="cab"><b>Sábados y domingos</b></div>
+        <p class="sub">Por defecto no se puede apartar en fin de semana. Autoriza una fecha solo para casos especiales.</p>
+        <div class="g">
+          <label>Fecha (sábado o domingo) <input type="date" id="autFecha"></label>
+          <label>Motivo <input id="autMotivo" maxlength="60" placeholder="Proyecto, evento…"></label>
+        </div>
+        <p><button class="p" id="autorizar">Autorizar fecha</button></p>
+        <ul class="lista-admin" id="listaAutorizados"></ul>
+      </section>
+
+      <section class="card">
+        <div class="cab"><b>Horarios bloqueados</b><button class="p" id="bloquear">+ Bloquear horario</button></div>
+        <p class="sub">Clases u otros usos: nadie puede apartar en esos horarios.</p>
+        <ul class="lista-admin" id="listaBloqueos"></ul>
+      </section>
+
+      <section class="card" id="adminLabs">
+        <div class="cab"><b>Laboratorios</b><button class="p" id="nuevoLab">+ Agregar</button></div>
+        <p class="sub">Cada laboratorio muestra a todos si está libre u ocupado. Define su horario de apertura y registra cuándo está ocupado.</p>
+        <ul class="lista-admin" id="listaLabs"></ul>
+      </section>
+
+      <section class="card" id="adminUsoLab">
+        <div class="cab"><b>Ocupación de laboratorios</b><button class="p" id="nuevoUso">+ Registrar</button></div>
+        <p class="sub">Clases, prácticas u otros usos. Con "repetir cada semana" registras un horario fijo de una vez.</p>
+        <ul class="lista-admin" id="listaUsoLab"></ul>
+      </section>
+
+      <section class="card">
+        <div class="cab"><b>Reservas próximas</b></div>
+        <ul class="lista-admin" id="listaReservas"></ul>
+      </section>
     </div>
   </main>
 
@@ -155,6 +229,73 @@
     <div class="acciones">
       <button id="bCerrar">Cerrar</button>
       <button class="p" id="bGuardar">Bloquear</button>
+    </div>
+  </dialog>
+
+  <!-- POPUP: agregar o editar material (administrador) -->
+  <dialog id="modalEquipo">
+    <h2 id="eTitulo">Material</h2>
+    <div class="g" style="margin-top:10px">
+      <label>Nombre <input id="eNombre" maxlength="30"></label>
+      <label>Color <input type="color" id="eColor" value="#00d26a"></label>
+    </div>
+    <div id="eout"></div>
+    <div class="acciones">
+      <button id="eCerrar">Cerrar</button>
+      <button class="p" id="eGuardar">Guardar</button>
+    </div>
+  </dialog>
+
+  <!-- POPUP: agregar o editar laboratorio (administrador) -->
+  <dialog id="modalLab">
+    <h2 id="lTitulo">Laboratorio</h2>
+    <div class="g" style="margin-top:10px">
+      <label>Nombre <input id="lNombre" maxlength="30"></label>
+      <label>Ubicación (opcional) <input id="lUbicacion" maxlength="60" placeholder="Edificio, piso…"></label>
+      <label>Abre <select id="lAbre"></select></label>
+      <label>Cierra <select id="lCierra"></select></label>
+    </div>
+    <div id="lout"></div>
+    <div class="acciones">
+      <button id="lCerrar">Cerrar</button>
+      <button class="p" id="lGuardar">Guardar</button>
+    </div>
+  </dialog>
+
+  <!-- POPUP: registrar ocupación de un laboratorio (administrador) -->
+  <dialog id="modalUsoLab">
+    <h2>Registrar ocupación</h2>
+    <p class="sub">Cuándo está ocupado un laboratorio (clases, prácticas…).</p>
+    <div class="g">
+      <label>Laboratorio <select id="uLab"></select></label>
+      <label>Fecha <input type="date" id="uFecha"></label>
+      <label>Desde <select id="uIni"></select></label>
+      <label>Hasta <select id="uFin"></select></label>
+      <label>Repetir cada semana hasta (opcional) <input type="date" id="uHasta"></label>
+    </div>
+    <label style="margin-top:10px">Motivo <input id="uMotivo" maxlength="60" placeholder="Clase, práctica…"></label>
+    <div id="uout"></div>
+    <div class="acciones">
+      <button id="uCerrar">Cerrar</button>
+      <button class="p" id="uGuardar">Guardar</button>
+    </div>
+  </dialog>
+
+  <!-- POPUP: días en los que se puede apartar -->
+  <dialog id="modalDias">
+    <h2>Días disponibles</h2>
+    <p class="sub" id="notaDias"></p>
+    <div class="dias-lista" id="listaDias"></div>
+    <div class="acciones"><button id="cerrarDias">Cerrar</button></div>
+  </dialog>
+
+  <!-- POPUP: avisos y confirmaciones (en lugar de los mensajes del navegador) -->
+  <dialog id="modalMensaje">
+    <h2 id="mTitulo">Aviso</h2>
+    <p id="mTexto"></p>
+    <div class="acciones">
+      <button id="mCancelar" hidden>Cancelar</button>
+      <button class="p" id="mAceptar">Entendido</button>
     </div>
   </dialog>
 

@@ -3,9 +3,11 @@ import { CFG } from './config.js';
 import { $, hoy, sumarDias, sumarMeses } from './utils.js';
 import { api } from './api.js';
 import { estado } from './estado.js';
-import { dibujar, dibujarLeyenda, iniciarCalendario } from './calendario.js';
+import { dibujar, iniciarCalendario } from './calendario.js';
 import { iniciarModales, abrirApartar, abrirCancelar } from './modales.js';
-import { iniciarAdmin, abrirAdminReserva, quitarBloqueo } from './admin.js';
+import { iniciarAdmin, dibujarAdmin, abrirAdminReserva, quitarBloqueo } from './admin.js';
+import { iniciarDias } from './disponibles.js';
+import { mensaje } from './mensajes.js';
 
 $('#modo').textContent = CFG.API_URL
   ? 'Conectado a Google Sheets · datos compartidos'
@@ -23,25 +25,36 @@ function mostrarConexion(ok) {
     : 'En línea · actualizado ' + hora;
 }
 
+let avisado = false;   // ya se avisó que se perdió la conexión
+
+// Si se pierde la conexión se avisa UNA vez (en una ventana) y se sigue mostrando lo último que se leyó
+function conexionPerdida() {
+  mostrarConexion(false);
+  if (avisado) return;
+  avisado = true;
+  mensaje('No se pudo conectar con el servidor. Se reintentará solo cada minuto; si sigue igual, recarga la página.');
+}
+
 // Lee las reservas (de Sheets o local) y redibuja
 async function cargar() {
   try {
-    estado.datos = await api.list();
-    if (!estado.datos.res) throw new Error('respuesta inválida');
-    $('#aviso').innerHTML = '';
+    const datos = await api.list();
+    if (!datos.res) throw new Error('respuesta inválida');
+    estado.datos = datos;
+    avisado = false;
     mostrarConexion(true);
   } catch (e) {
-    estado.datos = { res: [], blq: [] };
-    mostrarConexion(false);
-    $('#aviso').innerHTML = '<div class="msg e">No se pudo leer los datos. Intenta recargar la página.</div>';
+    conexionPerdida();
   }
   dibujar();
+  dibujarAdmin();   // solo se dibuja si el panel de administración está abierto
 }
 
 // Navegación: ◀ ▶ mueven un día, una semana o un mes según la vista
 function irA(fecha) { estado.fecha = fecha || hoy(); dibujar(); }
 function mover(n) {
-  if (estado.vista === 'mes') irA(sumarMeses(estado.fecha, n));
+  if (estado.seccion === 'labs') irA(sumarDias(estado.fecha, n));   // laboratorios: de día en día
+  else if (estado.vista === 'mes') irA(sumarMeses(estado.fecha, n));
   else irA(sumarDias(estado.fecha, estado.vista === 'semana' ? 7 * n : n));
 }
 $('#fecha').onchange = e => irA(e.target.value);
@@ -49,17 +62,26 @@ $('#prev').onclick = () => mover(-1);
 $('#next').onclick = () => mover(1);
 $('#hoy').onclick = () => irA(hoy());
 
+// Pestañas: Celda de manufactura / Laboratorios
+document.querySelectorAll('[data-sec]').forEach(boton => {
+  boton.onclick = () => {
+    estado.seccion = boton.dataset.sec;
+    document.body.classList.toggle('sec-labs', estado.seccion === 'labs');
+    document.querySelectorAll('[data-sec]').forEach(b => b.classList.toggle('on', b === boton));
+    dibujar();
+  };
+});
+
 // Cambiar de vista
 document.querySelectorAll('[data-v]').forEach(b => {
   b.onclick = () => { estado.vista = b.dataset.v; dibujar(); };
 });
 
 // Si el navegador pierde o recupera internet
-window.addEventListener('offline', () => mostrarConexion(false));
+window.addEventListener('offline', conexionPerdida);
 window.addEventListener('online', cargar);
 
 // Arranque
-dibujarLeyenda();
 iniciarCalendario({
   alLibre: (hora, equipo) => abrirApartar(estado.fecha, hora, equipo),
   alOcupada: id => estado.admin ? abrirAdminReserva(id) : abrirCancelar(id),
@@ -68,5 +90,6 @@ iniciarCalendario({
 });
 iniciarModales(cargar);
 iniciarAdmin(cargar);
+iniciarDias(fecha => { estado.fecha = fecha; estado.vista = 'dia'; dibujar(); });
 cargar();
 setInterval(cargar, 60000);   // se actualiza solo cada minuto
