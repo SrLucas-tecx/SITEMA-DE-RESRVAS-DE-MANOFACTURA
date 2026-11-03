@@ -123,6 +123,7 @@ aside li small { color: var(--m); }
   max-height: 72vh; overflow: auto;
   border: 2px solid var(--linea2); border-radius: 12px; background: var(--celda);
 }
+#vistaLab { max-height: 72vh; overflow: auto; border: 2px solid var(--linea2); border-radius: 12px; background: var(--celda); }
 
 .tabla { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 520px; table-layout: fixed; }
 .tabla th, .tabla td {
@@ -251,14 +252,39 @@ li { margin: 4px 0; }
 
 /* ===== Pantalla del administrador ===== */
 .grande { font-size: 18px; }
-.admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 14px; align-items: start; }
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(520px, 100%), 1fr)); gap: 14px; align-items: start; }
 .lista-admin { list-style: none; padding: 0; margin: 8px 0 0; }
 .lista-admin li { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--b); }
 .lista-admin li:first-child { border-top: 0; }
 .lista-admin li > span:first-of-type:not(.acc) { flex: 1; }
 .lista-admin .acc { margin-left: auto; display: flex; gap: 6px; }
 .lista-admin button { padding: 4px 10px; font-size: 13px; }
+.lista-admin .admin-lab-row, .lista-admin .admin-reserva-row {
+  display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 8px;
+}
+.lista-admin .admin-row-info { min-width: 0; overflow-wrap: anywhere; }
+.lista-admin .admin-lab-row .admin-row-info small { display: block; color: var(--m); }
+.lista-admin .admin-lab-row .acc, .lista-admin .admin-reserva-row .acc {
+  width: 100%; margin-left: 0; flex-wrap: wrap; justify-content: flex-start;
+}
+.lista-admin .admin-lab-row button, .lista-admin .admin-reserva-row button { white-space: nowrap; }
 input[type="color"] { height: 40px; padding: 2px 4px; cursor: pointer; }
+
+.admin-tabs {
+  display: flex; gap: 8px; overflow-x: auto; margin: 0 0 16px; padding: 6px;
+  background: var(--c); border: 1px solid var(--b); border-radius: 12px;
+}
+.admin-tabs button { flex: 0 0 auto; border-radius: 999px; padding: 9px 16px; font-weight: 650; }
+.admin-screen { min-height: 240px; }
+.admin-screen > .card, .admin-screen > section { max-width: 1000px; }
+.admin-lab-detail .cab { flex-wrap: wrap; }
+.admin-lab-detail .cab .grande { flex: 1 1 180px; }
+.dias-semana { display: flex; gap: 8px 16px; flex-wrap: wrap; margin: 12px 0; border: 1px solid var(--b); border-radius: 10px; }
+.dias-semana label { display: inline-flex; align-items: center; gap: 5px; }
+.dias-semana input { width: auto; margin: 0; }
+.lista-admin .resource-row { min-width: 0; }
+.lista-admin .resource-name { min-width: 0; overflow-wrap: anywhere; }
+.admin-lab-detail .lista-admin { max-width: 760px; }
 
 /* Fines de semana cerrados */
 th.finde { background: repeating-linear-gradient(135deg, #dfe7ef 0 6px, #d3dde8 6px 12px); color: var(--m); }
@@ -278,6 +304,16 @@ body td.bq[data-ir] { cursor: pointer; }
 
 /* Los usuarios normales no ven el estado de la conexión con Google (solo el administrador) */
 body:not(.admin) #enlinea, body:not(.admin) #modo { display: none; }
+
+@media (max-width: 700px) {
+  .admin-grid { grid-template-columns: minmax(0, 1fr); }
+  .admin-tabs { margin-right: -2px; }
+  .admin-tabs button { padding: 8px 12px; font-size: 13px; }
+  .admin-lab-detail .cab { align-items: stretch; }
+  .admin-lab-detail .cab > button { flex: 1 1 auto; }
+  .lista-admin .admin-lab-row .acc { gap: 6px; }
+  .lista-admin .admin-lab-row button { flex: 1 1 auto; }
+}
 
 /* ===== Ventana de avisos y días disponibles ===== */
 #mTexto { white-space: pre-line; margin: 10px 0 0; }
@@ -318,13 +354,19 @@ body:not(.sec-labs) #seccionLabs { display: none; }
 .lab-item .estado-lab { justify-self: start; text-align: left; }
 .barra.mini { height: 10px; margin: 0; border-width: 1px; }
 
-td.ll { background: #e2f6ea; }                                    /* libre */
-body.admin td.ll { cursor: pointer; }
-body.admin td.ll:hover { background: #c4f0d6; box-shadow: inset 0 0 0 2px var(--green); }
+td.ll { background: #e2f6ea; cursor: pointer; }                    /* libre */
+td.ll:hover { background: #c4f0d6; box-shadow: inset 0 0 0 2px var(--green); }
 td.lo { background: repeating-linear-gradient(135deg, #fff3cd 0 10px, #ffe9a8 10px 20px); color: #6b4e00; vertical-align: middle; }   /* ocupado */
 td.lo b { display: block; line-height: 1.2; }
 td.lo small { display: block; font-size: 11px; opacity: .75; }
 body.admin td.lo { cursor: pointer; }
+.lab-semana .lab-segs { align-items: center; min-height: 22px; }
+.lab-semana .lab-segs i { min-width: 4px; cursor: pointer; }
+.lab-semana .lab-segs i.lab-resource-free:hover { background: var(--green); box-shadow: 0 0 0 2px var(--teal); }
+.lab-semana .lab-segs i.lab-booked { border-radius: 4px; }
+.lab-activity { height: 20px; overflow: hidden; border-radius: 4px; background: repeating-linear-gradient(135deg, #fff3cd 0 6px, #f2b705 6px 12px); color: #6b4e00; font-size: 10px; white-space: nowrap; cursor: pointer; }
+.lab-legend { display: flex; gap: 8px 16px; flex-wrap: wrap; padding: 8px; border-bottom: 1px solid var(--b); }
+.lab-legend span { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; }
 
 /* ===== Indicador "Procesando…" ===== */
 .procesando {

@@ -53,6 +53,10 @@ export const bloqueado = (fecha, t) => !!bloqueoEn(fecha, t);
 export const laboratorios = () => estado.datos.laboratorios || [];
 export const usoLabTodos = () => estado.datos.usoLab || [];
 export const usoLab = fecha => usoLabTodos().filter(u => u.fecha === fecha);
+export const implementosLabTodos = () => estado.datos.implementosLab || [];
+export const implementosDeLab = lab => implementosLabTodos().filter(i => i.lab === lab.id);
+export const reservasLabTodos = () => estado.datos.resLab || [];
+export const reservasLabDe = fecha => reservasLabTodos().filter(r => r.fecha === fecha);
 
 // Laboratorio elegido (si ya no existe, el primero)
 export const labActual = () => laboratorios().find(l => l.id === estado.labId) || laboratorios()[0];

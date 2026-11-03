@@ -12,7 +12,7 @@
     <div class="top-titulo">
       <img class="logo-titulo" src="logo-fondo.svg" alt="Logo de Celda de Manufactura">
       <div>
-        <h1>Reservas · Celda de Manufactura</h1>
+        <h1 id="tituloApp">Reservas · Celda de Manufactura</h1>
         <p id="modo"></p>
       </div>
     </div>
@@ -43,7 +43,7 @@
       <input type="date" id="fecha">
       <button id="next">▶</button>
       <button id="hoy">Hoy</button>
-      <button class="solo-celda" id="abrirDias">📅 Días disponibles</button>
+      <button id="abrirDias">📅 Días disponibles</button>
       <div class="vistas">
         <button data-v="dia">Día</button>
         <button data-v="semana">Semana</button>
@@ -91,7 +91,7 @@
           <div class="cab"><b class="grande" id="tituloLabs"></b></div>
           <p class="sub" id="subLab"></p>
           <div id="vistaLab"></div>
-          <p class="sub" style="margin:8px 0 0">Verde = libre · rayas amarillas = ocupado · rayas grises = cerrado. En Semana y Mes toca un día para verlo por horas. Elige otro laboratorio en la lista.</p>
+          <p class="sub" style="margin:8px 0 0">Verde = implemento libre · color = reservado · rayas amarillas = actividad del laboratorio · rayas grises = cerrado. En Día toca un implemento libre; en Semana toca un horario libre; en Mes toca un día para ver sus horarios.</p>
         </section>
 
         <!-- Lista de laboratorios -->
@@ -121,53 +121,87 @@
       <button id="salirAdmin2">Salir</button>
     </div>
 
-    <div class="admin-grid">
-      <section class="card">
+    <nav class="admin-tabs" aria-label="Secciones de administración">
+      <button class="on" data-admin-view="celda">Celda de manufactura</button>
+      <button data-admin-view="laboratorios">Laboratorios</button>
+      <button data-admin-view="horarios">Horarios y excepciones</button>
+      <button data-admin-view="reservas">Ocupaciones y reservas</button>
+    </nav>
+
+    <section class="admin-screen" id="adminVistaCelda" data-admin-screen="celda">
+      <article class="card">
         <div class="cab"><b>Material de la celda</b><button class="p" id="nuevoEquipo">+ Agregar</button></div>
-        <p class="sub">Cada material es una columna del calendario y se puede apartar por separado. Si dos partes solo se usan juntas (por ejemplo banda y cámara), regístralas como un solo material. Al editar el nombre, las reservas existentes se actualizan.</p>
+        <p class="sub">Cada material es una columna y se puede apartar por separado. Si dos partes solo se usan juntas, regístralas como un solo material. Al editar el nombre, las reservas existentes se actualizan.</p>
         <ul class="lista-admin" id="listaEquipos"></ul>
-      </section>
-
-      <section class="card">
-        <div class="cab"><b>Sábados y domingos</b></div>
-        <p class="sub">Por defecto no se puede apartar en fin de semana. Autoriza una fecha solo para casos especiales.</p>
+      </article>
+      <article class="card" id="configCelda">
+        <div class="cab"><b>Configuración de la Celda de Manufactura</b></div>
+        <p class="sub">Define el nombre, el horario de atención y con cuántos días de anticipación se puede reservar.</p>
         <div class="g">
-          <label>Fecha (sábado o domingo) <input type="date" id="autFecha"></label>
-          <label>Motivo <input id="autMotivo" maxlength="60" placeholder="Proyecto, evento…"></label>
+          <label>Nombre de la celda <input id="celdaNombre" maxlength="30" required></label>
+          <label>Abre <input type="time" id="celdaAbre" min="00:00" max="23:30" step="1800" required></label>
+          <label>Cierra <input type="time" id="celdaCierra" min="00:30" max="23:30" step="1800" required></label>
+          <label>Días de anticipación <input type="number" id="celdaAnticipacion" min="0" max="365" step="1" required></label>
         </div>
-        <p><button class="p" id="autorizar">Autorizar fecha</button></p>
-        <ul class="lista-admin" id="listaAutorizados"></ul>
-      </section>
+        <div id="celdaConfigOut"></div>
+        <p><button class="p" id="guardarConfigCelda">Guardar configuración</button></p>
+      </article>
+    </section>
 
-      <section class="card">
-        <div class="cab"><b>Horarios bloqueados</b><button class="p" id="bloquear">+ Bloquear horario</button></div>
-        <p class="sub">Clases u otros usos: nadie puede apartar en esos horarios.</p>
-        <ul class="lista-admin" id="listaBloqueos"></ul>
-      </section>
-
-      <section class="card" id="adminLabs">
-        <div class="cab"><b>Laboratorios</b><button class="p" id="nuevoLab">+ Agregar</button></div>
-        <p class="sub">Cada laboratorio muestra a todos si está libre u ocupado. Define su horario de apertura y registra cuándo está ocupado.</p>
+    <section class="admin-screen" id="adminVistaLaboratorios" data-admin-screen="laboratorios" hidden>
+      <section id="adminLabLista">
+        <div class="cab"><b>Laboratorios</b><button class="p" id="nuevoLab">+ Agregar laboratorio</button></div>
+        <p class="sub">Abre un laboratorio para administrar sus horarios e implementos reservables.</p>
         <ul class="lista-admin" id="listaLabs"></ul>
       </section>
-
-      <section class="card" id="adminUsoLab">
-        <div class="cab"><b>Ocupación de laboratorios</b><button class="p" id="nuevoUso">+ Registrar</button></div>
-        <p class="sub">Clases, prácticas u otros usos. Con "repetir cada semana" registras un horario fijo de una vez.</p>
-        <ul class="lista-admin" id="listaUsoLab"></ul>
+      <section class="card admin-lab-detail" id="adminLabDetalle" hidden>
+        <div class="cab"><button id="volverLabs">← Laboratorios</button><b class="grande" id="adminLabNombre"></b><button id="editarLabDetalle">Editar laboratorio</button></div>
+        <p class="sub" id="adminLabInfo"></p>
+        <div class="cab"><b>Implementos reservables</b><button class="p" id="nuevoImplementoLab">+ Agregar implemento</button></div>
+        <p class="sub">Cada implemento tiene su propia columna, color y disponibilidad. Editar o quitar un implemento usa el mismo formulario de materiales de la celda.</p>
+        <ul class="lista-admin" id="listaImplementosLab"></ul>
       </section>
+    </section>
 
-      <section class="card">
-        <div class="cab"><b>Reservas próximas</b></div>
-        <ul class="lista-admin" id="listaReservas"></ul>
-      </section>
-    </div>
+    <section class="admin-screen" id="adminVistaHorarios" data-admin-screen="horarios" hidden>
+      <div class="admin-grid">
+        <section class="card">
+          <div class="cab"><b>Sábados y domingos</b></div>
+          <p class="sub">Por defecto no se puede apartar en fin de semana. Autoriza una fecha solo para casos especiales.</p>
+          <div class="g">
+            <label>Fecha (sábado o domingo) <input type="date" id="autFecha"></label>
+            <label>Motivo <input id="autMotivo" maxlength="60" placeholder="Proyecto, evento…"></label>
+          </div>
+          <p><button class="p" id="autorizar">Autorizar fecha</button></p>
+          <ul class="lista-admin" id="listaAutorizados"></ul>
+        </section>
+        <section class="card">
+          <div class="cab"><b>Horarios bloqueados</b><button class="p" id="bloquear">+ Bloquear horario</button></div>
+          <p class="sub">Clases u otros usos de la celda: nadie podrá apartar durante esos horarios.</p>
+          <ul class="lista-admin" id="listaBloqueos"></ul>
+        </section>
+      </div>
+    </section>
+
+    <section class="admin-screen" id="adminVistaReservas" data-admin-screen="reservas" hidden>
+      <div class="admin-grid">
+        <section class="card" id="adminUsoLab">
+          <div class="cab"><b>Ocupaciones de laboratorios</b><button class="p" id="nuevoUso">+ Registrar</button></div>
+          <p class="sub">Clases, prácticas u otros usos que bloquean todo el laboratorio. Puedes repetirlas cada semana.</p>
+          <ul class="lista-admin" id="listaUsoLab"></ul>
+        </section>
+        <section class="card">
+          <div class="cab"><b>Reservas próximas</b></div>
+          <ul class="lista-admin" id="listaReservas"></ul>
+        </section>
+      </div>
+    </section>
   </main>
 
   <!-- POPUP: apartar -->
   <dialog id="modalApartar">
     <div id="formApartar">
-      <h2>Apartar</h2>
+      <h2 id="apartTitulo">Apartar</h2>
       <div class="g" style="margin-top:10px">
         <label>Nombre completo <input id="nombre" autocomplete="name"></label>
         <label>Matrícula <input id="matricula"></label>
@@ -280,7 +314,19 @@
       <label>Ubicación (opcional) <input id="lUbicacion" maxlength="60" placeholder="Edificio, piso…"></label>
       <label>Abre <select id="lAbre"></select></label>
       <label>Cierra <select id="lCierra"></select></label>
+      <label>Días de anticipación para reservar <input type="number" id="lAnticipacion" min="0" max="365" step="1" value="5" required></label>
     </div>
+    <fieldset class="dias-semana" id="lDias">
+      <legend>Días disponibles para reservar</legend>
+      <label><input type="checkbox" value="1"> Lunes</label>
+      <label><input type="checkbox" value="2"> Martes</label>
+      <label><input type="checkbox" value="3"> Miércoles</label>
+      <label><input type="checkbox" value="4"> Jueves</label>
+      <label><input type="checkbox" value="5"> Viernes</label>
+      <label><input type="checkbox" value="6"> Sábado</label>
+      <label><input type="checkbox" value="0"> Domingo</label>
+    </fieldset>
+    <p class="sub">Los fines de semana siguen requiriendo autorización del administrador.</p>
     <div id="lout"></div>
     <div class="acciones">
       <button id="lCerrar">Cerrar</button>

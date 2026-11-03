@@ -70,6 +70,7 @@ export function sumarMeses(fecha, n) {
 export const nombreDia = fecha => DIAS[(new Date(fecha + 'T12:00').getDay() + 6) % 7];
 export const nombresDias = () => DIAS;
 export const diaDelMes = fecha => Number(fecha.slice(8));
+export const diaSemana = fecha => new Date(fecha + 'T12:00').getDay();
 export function nombreMes(fecha) {
   const d = new Date(fecha + 'T12:00');
   return MESES[d.getMonth()] + ' ' + d.getFullYear();

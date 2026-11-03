@@ -1,15 +1,17 @@
 /* Punto de entrada: junta los módulos y arranca la página */
 import { CFG } from './config.js';
-import { $, hoy, sumarDias, sumarMeses } from './utils.js';
+import { $, aHora, aMinutos, hoy, sumarDias, sumarMeses } from './utils.js';
 import { api, apiDirecta } from './api.js';
 import { estado } from './estado.js';
 import { dibujar, iniciarCalendario } from './calendario.js';
-import { iniciarModales, abrirApartar, abrirCancelar } from './modales.js';
+import { iniciarModales, abrirApartar, abrirApartarLab, abrirCancelar } from './modales.js';
 import { iniciarAdmin, dibujarAdmin, mostrarPantalla, abrirAdminReserva, quitarBloqueo } from './admin.js';
 import { iniciarLabs } from './laboratorios.js';
-import { abrirUso, quitarOcupacion } from './adminLabs.js';
+import { quitarOcupacion } from './adminLabs.js';
 import { iniciarDias } from './disponibles.js';
 import { mensaje } from './mensajes.js';
+import { actualizarBloques, bloques } from './horario.js';
+import { actualizarBloquesLab } from './horarioLab.js';
 
 $('#modo').textContent = CFG.API_URL
   ? 'Conectado a Google Sheets · datos compartidos'
@@ -29,6 +31,38 @@ function mostrarConexion(ok) {
 
 let avisado = false;   // ya se avisó que se perdió la conexión
 
+function aplicarConfiguracionCelda(config = {}) {
+  const anterior = `${CFG.NOMBRE_CELDA}|${CFG.HORA_INI}|${CFG.HORA_FIN}|${CFG.DIAS_ANTICIPACION}`;
+  if (typeof config.nombre === 'string' && config.nombre.trim()) CFG.NOMBRE_CELDA = config.nombre;
+  if (/^\d{2}:\d{2}$/.test(config.abre) && /^\d{2}:\d{2}$/.test(config.cierra) &&
+      aMinutos(config.abre) % 30 === 0 && aMinutos(config.cierra) % 30 === 0 &&
+      aMinutos(config.abre) < 1440 && aMinutos(config.cierra) <= 1410 &&
+      aMinutos(config.cierra) > aMinutos(config.abre)) {
+    CFG.HORA_INI = config.abre;
+    CFG.HORA_FIN = config.cierra;
+  }
+  const dias = Number(config.diasAnticipacion);
+  if (config.diasAnticipacion !== '' && config.diasAnticipacion !== null &&
+      config.diasAnticipacion !== undefined && Number.isInteger(dias) && dias >= 0 && dias <= 365) {
+    CFG.DIAS_ANTICIPACION = dias;
+  }
+  const actual = `${CFG.NOMBRE_CELDA}|${CFG.HORA_INI}|${CFG.HORA_FIN}|${CFG.DIAS_ANTICIPACION}`;
+  if (actual === anterior) return;
+
+  actualizarBloques();
+  const horas = bloques.map(aHora);
+  const llenar = (selector, opciones) => {
+    const select = $(selector), valor = select.value;
+    select.innerHTML = opciones.map(hora => `<option>${hora}</option>`).join('');
+    select.value = opciones.includes(valor) ? valor : (opciones[0] || '');
+  };
+  llenar('#inicio', horas);
+  llenar('#bIni', horas);
+  llenar('#bFin', bloques.map(t => aHora(t + 30)));
+  $('#tituloApp').textContent = 'Reservas · ' + CFG.NOMBRE_CELDA;
+  document.title = 'Reservas · ' + CFG.NOMBRE_CELDA;
+}
+
 // Si se pierde la conexión se avisa UNA vez (en una ventana) y se sigue mostrando lo último que se leyó
 function conexionPerdida() {
   mostrarConexion(false);
@@ -42,7 +76,9 @@ async function cargar(silencioso) {
   try {
     const datos = await (silencioso ? apiDirecta : api).list();
     if (!datos.res) throw new Error('respuesta inválida');
+    aplicarConfiguracionCelda(datos.configuracionCelda);
     estado.datos = datos;
+    actualizarBloquesLab(datos.laboratorios || []);
     avisado = false;
     mostrarConexion(true);
   } catch (e) {
@@ -100,7 +136,8 @@ iniciarCalendario({
 iniciarModales(cargar);
 iniciarAdmin(cargar, irALab);
 iniciarLabs({
-  alLibre: (fecha, hora) => estado.admin && abrirUso({ lab: estado.labId, fecha, inicio: hora }),   // solo el administrador
+  alLibre: (fecha, hora, implemento) => abrirApartarLab(fecha, hora, estado.labId, implemento),
+  alReserva: id => estado.admin ? abrirAdminReserva(id, 'lab') : abrirCancelar(id, 'lab'),
   alOcupado: (fecha, inicio, fin) => estado.admin && quitarOcupacion(fecha, inicio, fin, cargar),
   alDia: fecha => { estado.fecha = fecha; estado.vista = 'dia'; dibujar(); }
 });

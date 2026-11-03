@@ -1,7 +1,7 @@
 /* Almacenamiento: modo local (pruebas) o Google Sheets. El resto de la app solo usa `api` */
 import { CFG } from './config.js';
 import { validar, NOMBRE_EQUIPO } from './validacion.js';
-import { hoy, esFinDeSemana } from './utils.js';
+import { hoy, esFinDeSemana, aMinutos, ahora, sumarDias, diaSemana } from './utils.js';
 import { conIndicador } from './procesando.js';
 
 /* Modo LOCAL: guarda en este navegador (solo pruebas) */
@@ -25,14 +25,36 @@ const NO_ADMIN = { error: 'Código de administrador incorrecto (en modo local es
 
 // Material y fines de semana autorizados en modo local
 const LSE = 'equipos_celda_v1', LSA = 'autorizados_celda_v1', LSL = 'labs_celda_v1', LSU = 'usolab_celda_v1';
+const LSI = 'implementos_labs_v1', LSRL = 'reservas_labs_v1';
+const LSC = 'config_celda_v1';
 const leerLS = (clave, valorInicial) => { try { return JSON.parse(localStorage.getItem(clave)) || valorInicial; } catch (e) { return valorInicial; } };
 const equiposLocal = () => leerLS(LSE, CFG.EQUIPOS.map(nombre => ({ nombre, color: CFG.COLORES[nombre] })));
+const implementosLocal = () => leerLS(LSI, []);
+const reservasLabLocal = () => leerLS(LSRL, []);
+const diasLabValidos = dias => Array.isArray(dias) && dias.length > 0 &&
+  dias.every(dia => Number.isInteger(dia) && dia >= 0 && dia <= 6) &&
+  new Set(dias).size === dias.length;
+const diasLab = lab => diasLabValidos(lab.diasDisponibles) ? lab.diasDisponibles : CFG.DIAS_LAB_DEFAULT;
+const configuracionCeldaLocal = () => ({
+  nombre: CFG.NOMBRE_CELDA, abre: CFG.HORA_INI, cierra: CFG.HORA_FIN,
+  diasAnticipacion: CFG.DIAS_ANTICIPACION, ...leerLS(LSC, {})
+});
+const horaValida = hora => /^\d{2}:\d{2}$/.test(hora) && aMinutos(hora) >= 0 &&
+  aMinutos(hora) < 1440 && aMinutos(hora) % 30 === 0;
+const horaLabValida = hora => /^\d{2}:\d{2}$/.test(hora) && aMinutos(hora) >= 0 &&
+  aMinutos(hora) <= 1440 && aMinutos(hora) % 30 === 0;
 
 const Local = {
   // La lista pública nunca incluye matrícula ni código
   async list() {
     const res = cargarLocal().map(({ matricula, pin, ...publico }) => publico);
-    return { res, blq: bloqueosTodos(), equipos: equiposLocal(), autorizados: leerLS(LSA, []), laboratorios: leerLS(LSL, []), usoLab: leerLS(LSU, []) };
+    return {
+      res, blq: bloqueosTodos(), equipos: equiposLocal(), autorizados: leerLS(LSA, []),
+      configuracionCelda: configuracionCeldaLocal(),
+      laboratorios: leerLS(LSL, []).map(l => ({ ...l, diasDisponibles: diasLab(l) })),
+      usoLab: leerLS(LSU, []), implementosLab: implementosLocal(),
+      resLab: reservasLabLocal().map(({ matricula, pin, ...publico }) => publico)
+    };
   },
 
   async create(r) {
@@ -62,7 +84,7 @@ const Local = {
   },
 
   async cancel(o) {
-    const todas = cargarLocal();
+    const todas = o.tipo === 'lab' ? reservasLabLocal() : cargarLocal();
     const x = todas.find(y => y.id === o.id && y.estado === 'Activa');
     if (!x) return { error: 'Reserva no encontrada.' };
 
@@ -74,7 +96,8 @@ const Local = {
     if (!esAdmin && !datosCorrectos) return { error: 'Matrícula o código incorrectos.' };
 
     x.estado = 'Cancelada';
-    guardarLocal(todas);
+    if (o.tipo === 'lab') localStorage.setItem(LSRL, JSON.stringify(todas));
+    else guardarLocal(todas);
     return { ok: 1 };
   },
 
@@ -83,7 +106,8 @@ const Local = {
 
   async borrar(o) {
     if (!esAdminLocal(o)) return NO_ADMIN;
-    guardarLocal(cargarLocal().filter(x => x.id !== o.id));
+    if (o.tipo === 'lab') localStorage.setItem(LSRL, JSON.stringify(reservasLabLocal().filter(x => x.id !== o.id)));
+    else guardarLocal(cargarLocal().filter(x => x.id !== o.id));
     return { ok: 1 };
   },
 
@@ -149,16 +173,59 @@ const Local = {
     return { ok: 1 };
   },
 
+  async celdaGuardar(o) {
+    if (!esAdminLocal(o)) return NO_ADMIN;
+    const nombre = String(o.nombre || '').trim();
+    const diasAnticipacion = Number(o.diasAnticipacion);
+    if (!NOMBRE_EQUIPO.test(nombre)) return { error: 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).' };
+    if (!horaValida(o.abre) || !horaValida(o.cierra) || aMinutos(o.cierra) > 1410 || aMinutos(o.cierra) <= aMinutos(o.abre)) {
+      return { error: 'Horario inválido: usa horas en intervalos de 30 minutos y asegúrate de que el cierre sea posterior a la apertura.' };
+    }
+    if (o.diasAnticipacion === '' || o.diasAnticipacion === null || o.diasAnticipacion === undefined ||
+        !Number.isInteger(diasAnticipacion) || diasAnticipacion < 0 || diasAnticipacion > 365) {
+      return { error: 'La anticipación debe ser un número entero entre 0 y 365 días.' };
+    }
+    if (cargarLocal().some(r => r.estado === 'Activa' && r.fecha >= hoy() &&
+        (aMinutos(r.inicio) < aMinutos(o.abre) || aMinutos(r.fin) > aMinutos(o.cierra)))) {
+      return { error: 'El horario nuevo dejaría reservas activas fuera de horario. Cancélalas o ajusta el horario antes.' };
+    }
+    localStorage.setItem(LSC, JSON.stringify({ nombre, abre: o.abre, cierra: o.cierra, diasAnticipacion }));
+    return { ok: 1 };
+  },
+
   // ----- Laboratorios -----
   async labGuardar(o) {
     if (!esAdminLocal(o)) return NO_ADMIN;
     const nombre = String(o.nombre || '').trim(), lista = leerLS(LSL, []);
+    const nuevo = !o.id;
+    const abre = nuevo && (o.abre === undefined || o.abre === null) ? CFG.HORA_INI : o.abre;
+    const cierra = nuevo && (o.cierra === undefined || o.cierra === null) ? CFG.HORA_FIN : o.cierra;
+    const valorAnticipacion = nuevo && (o.diasAnticipacion === undefined || o.diasAnticipacion === null)
+      ? CFG.DIAS_ANTICIPACION : o.diasAnticipacion;
+    const diasAnticipacion = Number(valorAnticipacion);
+    const diasDisponibles = nuevo && (o.diasDisponibles === undefined || o.diasDisponibles === null)
+      ? CFG.DIAS_LAB_DEFAULT.slice() : o.diasDisponibles;
     if (!NOMBRE_EQUIPO.test(nombre)) return { error: 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).' };
-    if (!/^\d{2}:\d{2}$/.test(o.abre) || !/^\d{2}:\d{2}$/.test(o.cierra) || o.cierra <= o.abre) return { error: 'Horario de apertura inválido.' };
+    if (!horaLabValida(abre) || !horaLabValida(cierra) || aMinutos(abre) >= 1440 ||
+        aMinutos(cierra) <= aMinutos(abre)) return { error: 'Horario de apertura inválido.' };
+    if (valorAnticipacion === '' || valorAnticipacion === null || valorAnticipacion === undefined ||
+        !Number.isInteger(diasAnticipacion) || diasAnticipacion < 0 || diasAnticipacion > 365) {
+      return { error: 'La anticipación debe ser un número entero entre 0 y 365 días.' };
+    }
+    if (!diasLabValidos(diasDisponibles)) return { error: 'Selecciona al menos un día disponible.' };
     if (lista.some(l => l.nombre.toLowerCase() === nombre.toLowerCase() && l.id !== o.id)) return { error: 'Ya existe un laboratorio con ese nombre.' };
-    const datos = { nombre, ubicacion: String(o.ubicacion || '').trim().slice(0, 60), abre: o.abre, cierra: o.cierra };
+    const datos = { nombre, ubicacion: String(o.ubicacion || '').trim().slice(0, 60), abre, cierra, diasAnticipacion, diasDisponibles };
     const i = lista.findIndex(l => l.id === o.id);
     if (o.id && i < 0) return { error: 'Laboratorio no encontrado.' };
+    const reservasActivas = reservasLabLocal().filter(r =>
+      r.lab === o.id && r.estado === 'Activa' && r.fecha >= hoy());
+    if (i >= 0 && reservasActivas.some(r =>
+      aMinutos(r.inicio) < aMinutos(abre) || aMinutos(r.fin) > aMinutos(cierra))) {
+      return { error: 'El nuevo horario dejaría una reserva activa fuera de horario. Cancélala o ajusta el horario de la reserva primero.' };
+    }
+    if (i >= 0 && reservasActivas.some(r => !diasDisponibles.includes(diaSemana(r.fecha)))) {
+      return { error: 'Los nuevos días no están disponibles para una reserva activa. Cancélala o conserva ese día habilitado.' };
+    }
     if (i >= 0) lista[i] = { id: o.id, ...datos }; else lista.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...datos });
     localStorage.setItem(LSL, JSON.stringify(lista));
     return { ok: 1 };
@@ -168,14 +235,98 @@ const Local = {
     if (!esAdminLocal(o)) return NO_ADMIN;
     localStorage.setItem(LSL, JSON.stringify(leerLS(LSL, []).filter(l => l.id !== o.id)));
     localStorage.setItem(LSU, JSON.stringify(leerLS(LSU, []).filter(u => u.lab !== o.id)));
+    localStorage.setItem(LSI, JSON.stringify(implementosLocal().filter(i => i.lab !== o.id)));
+    localStorage.setItem(LSRL, JSON.stringify(reservasLabLocal().filter(r => r.lab !== o.id)));
     return { ok: 1 };
+  },
+
+  async labImplementoGuardar(o) {
+    if (!esAdminLocal(o)) return NO_ADMIN;
+    const nombre = String(o.nombre || '').trim(), lista = implementosLocal();
+    if (!NOMBRE_EQUIPO.test(nombre)) return { error: 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).' };
+    if (!/^#[0-9a-f]{6}$/i.test(o.color)) return { error: 'Color inválido.' };
+    if (!leerLS(LSL, []).some(l => l.id === o.lab)) return { error: 'Laboratorio no encontrado.' };
+    if (lista.some(i => i.lab === o.lab && i.nombre.toLowerCase() === nombre.toLowerCase() && i.id !== o.id)) return { error: 'Ya existe un implemento con ese nombre en este laboratorio.' };
+    const actual = lista.find(i => i.id === o.id && i.lab === o.lab);
+    if (o.id && !actual) return { error: 'Implemento no encontrado.' };
+    if (actual) {
+      const anterior = actual.nombre;
+      actual.nombre = nombre;
+      actual.color = o.color;
+      const reservas = reservasLabLocal();
+      reservas.forEach(r => {
+        if (r.lab === o.lab) r.equipos = r.equipos.map(e => e === anterior ? nombre : e);
+      });
+      localStorage.setItem(LSRL, JSON.stringify(reservas));
+    } else {
+      lista.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), lab: o.lab, nombre, color: o.color });
+    }
+    localStorage.setItem(LSI, JSON.stringify(lista));
+    return { ok: 1 };
+  },
+
+  async labImplementoQuitar(o) {
+    if (!esAdminLocal(o)) return NO_ADMIN;
+    const item = implementosLocal().find(i => i.id === o.id && i.lab === o.lab);
+    if (!item) return { error: 'Implemento no encontrado.' };
+    const usadas = reservasLabLocal().filter(r => r.lab === o.lab && r.estado === 'Activa' && r.fecha >= hoy() && r.equipos.includes(item.nombre)).length;
+    if (usadas) return { error: `Tiene ${usadas} reserva(s) activa(s). Cancélalas primero.` };
+    localStorage.setItem(LSI, JSON.stringify(implementosLocal().filter(i => i.id !== o.id)));
+    return { ok: 1 };
+  },
+
+  async createLab(r) {
+    const lab = leerLS(LSL, []).find(l => l.id === r.lab);
+    if (!lab) return { error: 'Laboratorio no encontrado.' };
+    const implementos = implementosLocal().filter(i => i.lab === r.lab).map(i => i.nombre);
+    if (!r.nombre || r.nombre.trim().length < 3) return { error: 'Escribe tu nombre completo.' };
+    if (!r.matricula || r.matricula.trim().length < 4) return { error: 'Escribe tu matrícula.' };
+    if (!Array.isArray(r.equipos) || !r.equipos.length) return { error: 'Elige al menos un implemento.' };
+    if (r.equipos.some(e => !implementos.includes(e))) return { error: 'El servidor no reconoce uno de los implementos. Recarga la página.' };
+    if (!Array.isArray(r.fechas) || !r.fechas.length || r.fechas.length > CFG.MAX_DIAS) return { error: `Elige entre 1 y ${CFG.MAX_DIAS} fechas.` };
+    if (r.fechas.some(f => !/^\d{4}-\d{2}-\d{2}$/.test(f))) return { error: 'Fecha inválida.' };
+    if (new Set(r.fechas.map(f => f.slice(0, 7))).size > 1) return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
+    const inicio = aMinutos(r.inicio), fin = aMinutos(r.fin);
+    if (inicio % 30 !== 0 || fin % 30 !== 0 || fin - inicio < 30 || fin - inicio > 30 * CFG.MAX_BLOQUES) return { error: `Duración máxima: ${CFG.MAX_BLOQUES * 30} minutos.` };
+    if (inicio < aMinutos(lab.abre) || fin > aMinutos(lab.cierra)) return { error: 'Fuera del horario de apertura del laboratorio.' };
+    const autorizados = leerLS(LSA, []);
+    const reservas = reservasLabLocal();
+    const usos = leerLS(LSU, []);
+    const diasAnticipacion = lab.diasAnticipacion !== '' && lab.diasAnticipacion !== null &&
+      lab.diasAnticipacion !== undefined && Number.isInteger(Number(lab.diasAnticipacion))
+      ? Number(lab.diasAnticipacion) : CFG.DIAS_ANTICIPACION;
+    const disponibles = diasLab(lab);
+    for (const fecha of r.fechas) {
+      if (fecha < sumarDias(hoy(), diasAnticipacion)) return { error: `${fecha}: este laboratorio requiere ${diasAnticipacion} días de anticipación.` };
+      if (!disponibles.includes(diaSemana(fecha))) return { error: `${fecha}: este laboratorio no está disponible ese día de la semana.` };
+      if (esFinDeSemana(fecha) && !autorizados.some(a => a.fecha === fecha)) return { error: `${fecha}: los sábados y domingos no se pueden apartar (solo con autorización del administrador).` };
+      if (fecha + ' ' + r.inicio < ahora()) return { error: `${fecha}: ese horario ya pasó.` };
+      if (reservas.some(x => x.estado === 'Activa' && x.lab === r.lab && x.fecha === fecha && inicio < aMinutos(x.fin) && fin > aMinutos(x.inicio) && x.equipos.some(e => r.equipos.includes(e)))) {
+        return { error: `${fecha}: uno de los implementos ya está reservado en ese horario.` };
+      }
+      if (usos.some(u => u.lab === r.lab && u.fecha === fecha && inicio < aMinutos(u.fin) && fin > aMinutos(u.inicio))) return { error: `${fecha}: el laboratorio está ocupado por una actividad.` };
+    }
+    const pin = String(1000 + Math.floor(Math.random() * 9000));
+    r.fechas.forEach((fecha, i) => {
+      const { fechas, ...resto } = r;
+      reservas.push({ ...resto, fecha, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
+    });
+    localStorage.setItem(LSRL, JSON.stringify(reservas));
+    return { ok: 1, pin, n: r.fechas.length };
   },
 
   async labOcupar(o) {
     if (!esAdminLocal(o)) return NO_ADMIN;
-    if (!leerLS(LSL, []).some(l => l.id === o.lab)) return { error: 'Laboratorio no encontrado.' };
+    const lab = leerLS(LSL, []).find(l => l.id === o.lab);
+    if (!lab) return { error: 'Laboratorio no encontrado.' };
     if (!Array.isArray(o.fechas) || !o.fechas.length || o.fechas.length > 60) return { error: 'Elige entre 1 y 60 fechas.' };
-    if (o.fin <= o.inicio) return { error: 'Horario inválido.' };
+    if (!/^\d{2}:\d{2}$/.test(o.inicio) || !/^\d{2}:\d{2}$/.test(o.fin) || aMinutos(o.fin) <= aMinutos(o.inicio)) return { error: 'Horario inválido.' };
+    if (aMinutos(o.inicio) < aMinutos(lab.abre) || aMinutos(o.fin) > aMinutos(lab.cierra)) return { error: 'Fuera del horario de apertura del laboratorio.' };
+    if (o.fechas.some(fecha => !/^\d{4}-\d{2}-\d{2}$/.test(fecha))) return { error: 'Fecha inválida.' };
+    const reservas = reservasLabLocal().filter(r => r.lab === o.lab && r.estado === 'Activa');
+    if (reservas.some(r => o.fechas.includes(r.fecha) && aMinutos(o.inicio) < aMinutos(r.fin) && aMinutos(o.fin) > aMinutos(r.inicio))) {
+      return { error: 'Hay reservas activas de implementos en ese horario. Cancélalas primero.' };
+    }
     const lista = leerLS(LSU, []);
     o.fechas.forEach(fecha => lista.push({ lab: o.lab, fecha, inicio: o.inicio, fin: o.fin, motivo: String(o.motivo || '').trim().slice(0, 60) }));
     localStorage.setItem(LSU, JSON.stringify(lista));
@@ -206,6 +357,7 @@ const Remote = {
   create(r) { return this.post({ action: 'create', ...r }); },
   cancel(o) { return this.post({ action: 'cancel', ...o }); },
   admin(codigo) { return this.post({ action: 'admin', admin: codigo }); },
+  celdaGuardar(o) { return this.post({ action: 'celdaGuardar', ...o }); },
   borrar(o) { return this.post({ action: 'borrar', ...o }); },
   bloquear(o) { return this.post({ action: 'bloquear', ...o }); },
   desbloquear(o) { return this.post({ action: 'desbloquear', ...o }); },
@@ -216,14 +368,22 @@ const Remote = {
   labGuardar(o) { return this.post({ action: 'labGuardar', ...o }); },
   labQuitar(o) { return this.post({ action: 'labQuitar', ...o }); },
   labOcupar(o) { return this.post({ action: 'labOcupar', ...o }); },
-  labLiberar(o) { return this.post({ action: 'labLiberar', ...o }); }
+  labLiberar(o) { return this.post({ action: 'labLiberar', ...o }); },
+  labImplementoGuardar(o) { return this.post({ action: 'labImplementoGuardar', ...o }); },
+  labImplementoQuitar(o) { return this.post({ action: 'labImplementoQuitar', ...o }); },
+  createLab(r) { return this.post({ action: 'createLab', ...r }); }
 };
 
 // Si hay URL se usa Google Sheets; si no, el modo local
 const base = CFG.API_URL ? Remote : Local;
 
 // Cada llamada muestra el indicador "Procesando…" mientras espera al servidor
-const TEXTOS = { list: 'Cargando…', create: 'Guardando tu reserva…', cancel: 'Cancelando…', admin: 'Verificando…', borrar: 'Eliminando…' };
+const TEXTOS = {
+  list: 'Cargando…', create: 'Guardando tu reserva…', createLab: 'Guardando tu reserva…',
+  cancel: 'Cancelando…', admin: 'Verificando…', borrar: 'Eliminando…',
+  celdaGuardar: 'Guardando configuración…',
+  labImplementoGuardar: 'Guardando implemento…', labImplementoQuitar: 'Quitando implemento…'
+};
 export const api = new Proxy(base, {
   get(objeto, nombre) {
     const f = objeto[nombre];

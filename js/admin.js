@@ -1,12 +1,14 @@
 /* Modo administrador: pantalla propia para el material, los fines de semana autorizados,
    los bloqueos y las reservas. También las acciones rápidas desde el calendario. */
+import { CFG } from './config.js';
 import { $, aMinutos, aHora, escapar, hoy, sumarDias, nombreDia, esFinDeSemana } from './utils.js';
 import { api } from './api.js';
-import { estado, listaEquipos, colorDe, autorizados } from './estado.js';
+import { estado, listaEquipos, colorDe, autorizados, reservasLabTodos, laboratorios } from './estado.js';
 import { bloques } from './horario.js';
-import { NOMBRE_EQUIPO } from './validacion.js';
 import { mensaje, confirmar, ejecutar } from './mensajes.js';
 import { dibujarAdminLabs, iniciarAdminLabs } from './adminLabs.js';
+import { iniciarResourceList } from './resourceList.js';
+import { NOMBRE_EQUIPO } from './validacion.js';
 
 const error = (donde, texto) => { $(donde).innerHTML = `<div class="msg e">${escapar(texto)}</div>`; };
 const sinConexion = { error: 'Sin conexión con el servidor.' };
@@ -48,16 +50,57 @@ async function entrar() {
 
 /* ---------- Panel: listas ---------- */
 const porFecha = (a, b) => (a.fecha + a.inicio).localeCompare(b.fecha + b.inicio);
+let tipoReservaAdmin = 'celda';
+let dibujarListaEquipos = () => {};
+let vistaAdmin = 'celda';
+
+function mostrarVistaAdmin(vista) {
+  vistaAdmin = vista;
+  document.querySelectorAll('[data-admin-view]').forEach(boton =>
+    boton.classList.toggle('on', boton.dataset.adminView === vista));
+  document.querySelectorAll('[data-admin-screen]').forEach(pantalla =>
+    { pantalla.hidden = pantalla.dataset.adminScreen !== vista; });
+}
+
+function dibujarConfigCelda() {
+  const enfocado = document.activeElement;
+  if ([...document.querySelectorAll('#configCelda input')].includes(enfocado)) return;
+  const config = estado.datos.configuracionCelda || CFG;
+  $('#celdaNombre').value = config.nombre || CFG.NOMBRE_CELDA;
+  $('#celdaAbre').value = config.abre || CFG.HORA_INI;
+  $('#celdaCierra').value = config.cierra || CFG.HORA_FIN;
+  $('#celdaAnticipacion').value = config.diasAnticipacion ?? CFG.DIAS_ANTICIPACION;
+}
+
+async function guardarConfiguracionCelda(recargar) {
+  const nombre = $('#celdaNombre').value.trim();
+  const abre = $('#celdaAbre').value, cierra = $('#celdaCierra').value;
+  const valorAnticipacion = $('#celdaAnticipacion').value.trim();
+  const diasAnticipacion = Number(valorAnticipacion);
+  if (!NOMBRE_EQUIPO.test(nombre)) return error('#celdaConfigOut', 'Escribe un nombre válido (máximo 30 caracteres).');
+  if (!/^\d{2}:\d{2}$/.test(abre) || !/^\d{2}:\d{2}$/.test(cierra) ||
+      aMinutos(abre) < 0 || aMinutos(abre) >= 1440 ||
+      aMinutos(cierra) < 30 || aMinutos(cierra) > 1410 ||
+      aMinutos(abre) % 30 || aMinutos(cierra) % 30 || aMinutos(cierra) <= aMinutos(abre)) {
+    return error('#celdaConfigOut', 'El horario debe usar intervalos de 30 minutos y la hora de cierre debe ser posterior a la apertura.');
+  }
+  if (!valorAnticipacion || !Number.isInteger(diasAnticipacion) || diasAnticipacion < 0 || diasAnticipacion > 365) {
+    return error('#celdaConfigOut', 'La anticipación debe ser un número entero entre 0 y 365 días.');
+  }
+  let respuesta;
+  try { respuesta = await api.celdaGuardar({ admin: estado.admin, nombre, abre, cierra, diasAnticipacion }); }
+  catch (e) { respuesta = sinConexion; }
+  if (respuesta.error) return error('#celdaConfigOut', respuesta.error);
+  await recargar();
+  $('#celdaConfigOut').innerHTML = '<div class="msg">Configuración guardada.</div>';
+}
 
 export function dibujarAdmin() {
   if (!estado.admin || estado.pantalla !== 'admin') return;
   const hoyStr = hoy();
 
-  $('#listaEquipos').innerHTML = listaEquipos().map(e =>
-    `<li><i class="chip" style="background:${colorDe(e.nombre)}"></i><b>${escapar(e.nombre)}</b>` +
-    `<span class="acc"><button data-eq-edit="${escapar(e.nombre)}">Editar</button>` +
-    `<button class="peligro" data-eq-del="${escapar(e.nombre)}">Quitar</button></span></li>`).join('')
-    || '<li class="sub">Todavía no hay material. Agrega el primero.</li>';
+  dibujarListaEquipos();
+  dibujarConfigCelda();
 
   $('#listaAutorizados').innerHTML = autorizados().filter(a => a.fecha >= hoyStr)
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
@@ -70,12 +113,17 @@ export function dibujarAdmin() {
       `<span class="acc"><button data-bq-del="${b.fecha}|${b.inicio}|${b.fin}">Quitar</button></span></li>`).join('')
     || '<li class="sub">Sin horarios bloqueados.</li>';
 
-  $('#listaReservas').innerHTML = estado.datos.res.filter(x => x.fecha >= hoyStr).sort(porFecha).slice(0, 60)
+  const reservasAdmin = [
+    ...estado.datos.res.filter(x => x.fecha >= hoyStr).map(x => ({ ...x, tipo: 'celda' })),
+    ...reservasLabTodos().filter(x => x.fecha >= hoyStr).map(x => ({ ...x, tipo: 'lab' }))
+  ];
+  $('#listaReservas').innerHTML = reservasAdmin.sort(porFecha).slice(0, 60)
     .map(x => {
       const activa = x.estado === 'Activa';
-      return `<li class="${activa ? '' : 'can'}"><span><b>${x.fecha}</b> · ${x.inicio}–${x.fin} · ${escapar(x.equipos.join(', '))} · ${escapar(x.nombre)}${activa ? '' : ' (cancelado)'}</span>` +
-        `<span class="acc">${activa ? `<button data-r-cancel="${x.id}">Cancelar</button>` : ''}` +
-        `<button class="peligro" data-r-del="${x.id}">Eliminar</button></span></li>`;
+      const lab = x.tipo === 'lab' ? laboratorios().find(l => l.id === x.lab) : null;
+      return `<li class="admin-reserva-row ${activa ? '' : 'can'}"><span class="admin-row-info"><b>${x.fecha}</b> · ${x.inicio}–${x.fin} · ${lab ? escapar(lab.nombre) + ' · ' : ''}${escapar(x.equipos.join(', '))} · ${escapar(x.nombre)}${activa ? '' : ' (cancelado)'}</span>` +
+        `<span class="acc">${activa ? `<button data-r-cancel="${x.id}" data-r-tipo="${x.tipo}">Cancelar</button>` : ''}` +
+        `<button class="peligro" data-r-del="${x.id}" data-r-tipo="${x.tipo}">Eliminar</button></span></li>`;
     }).join('') || '<li class="sub">Sin reservas próximas.</li>';
   dibujarAdminLabs();
 }
@@ -83,42 +131,16 @@ export function dibujarAdmin() {
 /* ---------- Panel: acciones ---------- */
 function clicPanel(ev, recargar) {
   const d = ev.target.dataset, admin = estado.admin;
-  if (d.eqEdit !== undefined) abrirEquipo(d.eqEdit);
-  else if (d.eqDel !== undefined) {
-    ejecutar(`¿Quitar "${d.eqDel}" de la celda? Ya no aparecerá en el calendario.`, () => api.equipoQuitar({ admin, nombre: d.eqDel }), recargar);
-  } else if (d.autDel) {
+  if (d.autDel) {
     ejecutar(`¿Quitar la autorización del ${d.autDel}?`, () => api.desautorizar({ admin, fecha: d.autDel }), recargar);
   } else if (d.bqDel) {
     const [fecha, inicio, fin] = d.bqDel.split('|');
     ejecutar(`¿Quitar el bloqueo del ${fecha} de ${inicio} a ${fin}?`, () => api.desbloquear({ admin, fecha, inicio, fin }), recargar);
   } else if (d.rCancel) {
-    ejecutar('¿Cancelar esta reserva? Quedará tachada en el calendario.', () => api.cancel({ id: d.rCancel, admin }), recargar);
+    ejecutar('¿Cancelar esta reserva? Quedará tachada en el calendario.', () => api.cancel({ id: d.rCancel, admin, tipo: d.rTipo }), recargar);
   } else if (d.rDel) {
-    ejecutar('¿Eliminar esta reserva definitivamente? No se puede deshacer.', () => api.borrar({ id: d.rDel, admin }), recargar);
+    ejecutar('¿Eliminar esta reserva definitivamente? No se puede deshacer.', () => api.borrar({ id: d.rDel, admin, tipo: d.rTipo }), recargar);
   }
-}
-
-/* ---------- Material: agregar y editar ---------- */
-let editando = null;   // nombre del material que se está editando (null = agregar uno nuevo)
-
-function abrirEquipo(nombre) {
-  editando = nombre || null;
-  $('#eTitulo').textContent = nombre ? 'Editar material' : 'Agregar material';
-  $('#eNombre').value = nombre || '';
-  $('#eColor').value = nombre ? colorDe(nombre) : '#00d26a';
-  $('#eout').innerHTML = '';
-  $('#modalEquipo').showModal();
-}
-
-async function guardarEquipo(recargar) {
-  const nombre = $('#eNombre').value.trim();
-  if (!NOMBRE_EQUIPO.test(nombre)) return error('#eout', 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).');
-  let r;
-  try { r = await api.equipoGuardar({ admin: estado.admin, nombre, color: $('#eColor').value, anterior: editando }); }
-  catch (e) { r = sinConexion; }
-  if (r.error) return error('#eout', r.error);
-  $('#modalEquipo').close();
-  recargar();
 }
 
 /* ---------- Fines de semana autorizados ---------- */
@@ -135,10 +157,12 @@ async function autorizar(recargar) {
 }
 
 /* ---------- Reserva tocada en el calendario (modo admin) ---------- */
-export function abrirAdminReserva(id) {
+export function abrirAdminReserva(id, tipo = 'celda') {
+  tipoReservaAdmin = tipo;
   estado.seleccionada = id;
-  const x = estado.datos.res.find(y => y.id === id);
-  $('#ainfo').innerHTML = `<b>${escapar(x.nombre)}</b><br>${x.fecha} · ${x.inicio}–${x.fin}<br>${escapar(x.equipos.join(', '))}` +
+  const x = (tipo === 'lab' ? reservasLabTodos() : estado.datos.res).find(y => y.id === id);
+  const lab = tipo === 'lab' ? laboratorios().find(l => l.id === x.lab) : null;
+  $('#ainfo').innerHTML = `<b>${escapar(x.nombre)}</b><br>${x.fecha} · ${x.inicio}–${x.fin}${lab ? `<br>${escapar(lab.nombre)}` : ''}<br>${escapar(x.equipos.join(', '))}` +
     (x.otros ? `<br>Otros: ${escapar(x.otros)}` : '');
   $('#adout').innerHTML = '';
   $('#modalAdmin').showModal();
@@ -148,7 +172,7 @@ export function abrirAdminReserva(id) {
 async function accion(metodo, pregunta, recargar) {
   if (pregunta && !(await confirmar(pregunta, { aceptar: 'Sí, eliminar', peligro: true }))) return;
   let r;
-  try { r = await api[metodo]({ id: estado.seleccionada, admin: estado.admin }); } catch (e) { r = sinConexion; }
+  try { r = await api[metodo]({ id: estado.seleccionada, admin: estado.admin, tipo: tipoReservaAdmin }); } catch (e) { r = sinConexion; }
   if (r.error) return error('#adout', r.error);
   $('#modalAdmin').close();
   recargar();
@@ -192,7 +216,23 @@ async function guardarBloqueo(recargar) {
 
 /* ---------- Inicio ---------- */
 export function iniciarAdmin(recargar, verLab) {
-  iniciarAdminLabs(recargar, verLab);
+  const recursosCelda = iniciarResourceList({
+    listSelector: '#listaEquipos',
+    addSelector: '#nuevoEquipo',
+    title: 'material',
+    emptyText: 'Todavía no hay material. Agrega el primero.',
+    getItems: listaEquipos,
+    getId: item => item.nombre,
+    getName: item => item.nombre,
+    getColor: item => colorDe(item.nombre),
+    getContext: () => ({}),
+    save: ({ id, nombre, color }) => api.equipoGuardar({ admin: estado.admin, nombre, color, anterior: id }),
+    remove: ({ item }) => api.equipoQuitar({ admin: estado.admin, nombre: item.nombre }),
+    confirmRemove: item => `¿Quitar "${item.nombre}" de la celda? Ya no aparecerá en el calendario.`,
+    onSaved: recargar
+  });
+  dibujarListaEquipos = recursosCelda.dibujar;
+  iniciarAdminLabs(recargar, verLab, () => mostrarVistaAdmin('laboratorios'));
   $('#bIni').innerHTML = bloques.map(t => `<option>${aHora(t)}</option>`).join('');
   $('#bFin').innerHTML = bloques.map(t => `<option>${aHora(t + 30)}</option>`).join('');
 
@@ -205,12 +245,15 @@ export function iniciarAdmin(recargar, verLab) {
   $('#verCalendario').onclick = () => mostrarPantalla('calendario');
   $('#salirAdmin').onclick = salir;
   $('#salirAdmin2').onclick = salir;
+  document.querySelectorAll('[data-admin-view]').forEach(boton => {
+    boton.onclick = () => mostrarVistaAdmin(boton.dataset.adminView);
+  });
+  mostrarVistaAdmin(vistaAdmin);
 
   // Panel
   $('#pantallaAdmin').onclick = ev => clicPanel(ev, recargar);
-  $('#nuevoEquipo').onclick = () => abrirEquipo();
+  $('#guardarConfigCelda').onclick = () => guardarConfiguracionCelda(recargar);
   $('#eCerrar').onclick = () => $('#modalEquipo').close();
-  $('#eGuardar').onclick = () => guardarEquipo(recargar);
   $('#autorizar').onclick = () => autorizar(recargar);
   $('#bloquear').onclick = abrirBloqueo;
   $('#bCerrar').onclick = () => $('#modalBloqueo').close();

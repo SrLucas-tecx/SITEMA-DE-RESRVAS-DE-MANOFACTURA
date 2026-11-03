@@ -3,4 +3,10 @@ import { CFG } from './config.js';
 import { aMinutos } from './utils.js';
 
 export const bloques = [];
-for (let t = aMinutos(CFG.HORA_INI); t < aMinutos(CFG.HORA_FIN); t += 30) bloques.push(t);
+
+export function actualizarBloques() {
+  bloques.length = 0;
+  for (let t = aMinutos(CFG.HORA_INI); t < aMinutos(CFG.HORA_FIN); t += 30) bloques.push(t);
+}
+
+actualizarBloques();

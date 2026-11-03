@@ -2,10 +2,10 @@ RESERVAS · CELDA DE MANUFACTURA
 
 ESTRUCTURA (la carpeta js debe quedar JUNTO a index.html y con TODOS sus archivos)
   index.html
-  style.css
-  js/            (config, utils, horario, estado, validacion, procesando, api, mensajes,
+  Style.css
+  js/            (config, utils, horario, horarioLab, estado, validacion, procesando, api, mensajes,
                   disponibles, vistaDia, vistaSemana, vistaMes, calendario, labDatos,
-                  vistaLab, laboratorios, modales, adminLabs, admin, main)  -> 20 archivos
+                  vistaLab, laboratorios, modales, resourceList, adminLabs, admin, main)  -> 22 archivos
   apps-script/Code.gs   (NO se sube a GitHub: se pega en Google Apps Script)
 
 PROBAR EN LA COMPU
@@ -16,17 +16,23 @@ PROBAR EN LA COMPU
      extensión del navegador y no afectan.
 
 SUBIR A GITHUB
-  Sube index.html, style.css y la carpeta js completa a la raíz del repositorio.
+  Sube index.html, Style.css y la carpeta js completa a la raíz del repositorio.
   Borra del repositorio los archivos de js/ que ya no estén en esta carpeta.
 
 GOOGLE SHEETS (cada vez que cambie Code.gs)
   1. Pega Code.gs completo en Apps Script y vuelve a poner tu código ADMIN.
-  2. Ejecuta la función configurar() una vez (crea las hojas que falten).
+  2. Ejecuta la función configurar() una vez (crea las hojas y columnas de configuración que falten).
   3. Implementar > Administrar implementaciones > lápiz > Versión nueva.
   4. Entra como administrador: la pastilla de arriba debe salir en verde "En línea".
      Si sale amarilla, el script publicado está desactualizado (falta la Versión nueva).
 
 MODO ADMINISTRADOR
   Botón "Admin" arriba a la derecha. Pide el código ADMIN de Code.gs y abre el panel:
-  material de la celda, sábados y domingos autorizados, horarios bloqueados,
-  laboratorios (con su calendario propio) y su ocupación, y reservas.
+  usa las pestañas para cambiar entre material de la celda, laboratorios, horarios y
+  excepciones, y ocupaciones y reservas. Abre un laboratorio para gestionar sus propios
+  implementos reservables y su horario. En "Celda de manufactura" también puedes
+  configurar el nombre, horario y días de anticipación de la celda. Cada laboratorio
+  permite seleccionar sus días disponibles; los nuevos vienen configurados de lunes a viernes,
+  de 08:00 a 20:00 y con 5 días de anticipación.
+  En la vista pública de Laboratorios, "Días disponibles" lista solo las fechas con
+  implementos y horarios libres para el laboratorio seleccionado.

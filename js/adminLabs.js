@@ -2,25 +2,44 @@
 import { CFG } from './config.js';
 import { $, aMinutos, aHora, escapar, hoy, sumarDias } from './utils.js';
 import { api } from './api.js';
-import { estado, laboratorios, usoLabTodos, labActual } from './estado.js';
-import { bloques } from './horario.js';
+import { estado, laboratorios, usoLabTodos, labActual, implementosLabTodos } from './estado.js';
 import { NOMBRE_EQUIPO } from './validacion.js';
 import { mensaje, ejecutar } from './mensajes.js';
+import { iniciarResourceList } from './resourceList.js';
 
 const error = (donde, texto) => { $(donde).innerHTML = `<div class="msg e">${escapar(texto)}</div>`; };
 const sinConexion = { error: 'Sin conexión con el servidor.' };
+const DIAS_NOMBRE = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const textoDias = dias => dias.map(dia => DIAS_NOMBRE[dia]).join(', ');
+const diasLab = lab => Array.isArray(lab?.diasDisponibles) && lab.diasDisponibles.length
+  ? lab.diasDisponibles : CFG.DIAS_LAB_DEFAULT;
 let editando = null;   // id del laboratorio que se está editando (null = uno nuevo)
+let labImplementos = null;
+let recursosLab = null;
 let verLab = () => {}; // abre el calendario propio de un laboratorio (lo define main.js)
+let alDetalle = () => {};
 
 /* ---------- Listas del panel ---------- */
 export function dibujarAdminLabs() {
-  const hoyStr = hoy(), nombres = Object.fromEntries(laboratorios().map(l => [l.id, l.nombre]));
+  const labs = laboratorios();
+  const hoyStr = hoy(), nombres = Object.fromEntries(labs.map(l => [l.id, l.nombre]));
 
-  $('#listaLabs').innerHTML = laboratorios().map(l =>
-    `<li><span><b>${escapar(l.nombre)}</b> · ${l.abre}–${l.cierra}${l.ubicacion ? ' · ' + escapar(l.ubicacion) : ''}</span>` +
-    `<span class="acc"><button class="p" data-lab-ver="${escapar(l.id)}">Ver calendario</button><button data-lab-edit="${escapar(l.id)}">Editar</button>` +
+  $('#listaLabs').innerHTML = labs.map(l =>
+    `<li class="admin-lab-row"><span class="admin-row-info"><b>${escapar(l.nombre)}</b><small>${l.abre}–${l.cierra}${l.ubicacion ? ' · ' + escapar(l.ubicacion) : ''} · ${escapar(textoDias(diasLab(l)))}</small></span>` +
+    `<span class="acc"><button class="p" data-lab-open="${escapar(l.id)}">Abrir laboratorio</button><button data-lab-ver="${escapar(l.id)}">Calendario</button><button data-lab-edit="${escapar(l.id)}">Editar</button>` +
     `<button class="peligro" data-lab-del="${escapar(l.id)}">Quitar</button></span></li>`).join('')
     || '<li class="sub">Todavía no hay laboratorios. Agrega el primero.</li>';
+
+  const labDetalle = laboratorios().find(l => l.id === labImplementos);
+  $('#adminLabLista').hidden = !!labDetalle;
+  $('#adminLabDetalle').hidden = !labDetalle;
+  if (labDetalle) {
+    $('#adminLabNombre').textContent = labDetalle.nombre;
+    $('#adminLabInfo').textContent = `${labDetalle.abre}–${labDetalle.cierra}${labDetalle.ubicacion ? ` · ${labDetalle.ubicacion}` : ''} · ${textoDias(diasLab(labDetalle))} · requiere ${labDetalle.diasAnticipacion ?? CFG.DIAS_ANTICIPACION} días de anticipación`;
+    recursosLab?.dibujar();
+  } else {
+    labImplementos = null;
+  }
 
   $('#listaUsoLab').innerHTML = usoLabTodos().filter(u => u.fecha >= hoyStr && nombres[u.lab])
     .sort((a, b) => (a.fecha + a.inicio).localeCompare(b.fecha + b.inicio)).slice(0, 60)
@@ -30,17 +49,25 @@ export function dibujarAdminLabs() {
 }
 
 function clic(ev, recargar) {
-  const d = ev.target.dataset, admin = estado.admin;
-  if (d.labVer !== undefined) verLab(d.labVer);
-  else if (d.labEdit !== undefined) abrirLab(d.labEdit);
+  const boton = ev.target.closest('[data-lab-open], [data-lab-ver], [data-lab-edit], [data-lab-del], #volverLabs, #editarLabDetalle');
+  if (!boton) return;
+  const d = boton.dataset, admin = estado.admin;
+  if (d.labOpen !== undefined) {
+    labImplementos = d.labOpen;
+    alDetalle();
+    dibujarAdminLabs();
+  } else if (d.labVer !== undefined) verLab(d.labVer);
+  else if (d.labEdit !== undefined || boton.id === 'editarLabDetalle') abrirLab(d.labEdit || labImplementos);
   else if (d.labDel !== undefined) {
     const lab = laboratorios().find(l => l.id === d.labDel);
-    ejecutar(`¿Quitar el laboratorio "${lab ? lab.nombre : ''}"? También se borran sus ocupaciones registradas.`,
-      () => api.labQuitar({ admin, id: d.labDel }), recargar);
-  } else if (d.usoDel) {
-    const [lab, fecha, inicio, fin] = d.usoDel.split('|');
-    ejecutar(`¿Quitar la ocupación del ${fecha} de ${inicio} a ${fin}?`,
-      () => api.labLiberar({ admin, lab, fecha, inicio, fin }), recargar);
+    ejecutar(`¿Quitar el laboratorio "${lab ? lab.nombre : ''}"? También se borran sus implementos, reservas y ocupaciones registradas.`,
+      () => api.labQuitar({ admin, id: d.labDel }), async () => {
+        if (labImplementos === d.labDel) labImplementos = null;
+        await recargar();
+      });
+  } else if (boton.id === 'volverLabs') {
+    labImplementos = null;
+    dibujarAdminLabs();
   }
 }
 
@@ -53,6 +80,9 @@ function abrirLab(id) {
   $('#lUbicacion').value = lab ? lab.ubicacion : '';
   $('#lAbre').value = lab ? lab.abre : CFG.HORA_INI;
   $('#lCierra').value = lab ? lab.cierra : CFG.HORA_FIN;
+  $('#lAnticipacion').value = lab ? (lab.diasAnticipacion ?? CFG.DIAS_ANTICIPACION) : CFG.DIAS_ANTICIPACION;
+  const dias = diasLab(lab);
+  document.querySelectorAll('#lDias input').forEach(input => { input.checked = dias.includes(Number(input.value)); });
   $('#lout').innerHTML = '';
   $('#modalLab').showModal();
 }
@@ -61,8 +91,15 @@ async function guardarLab(recargar) {
   const nombre = $('#lNombre').value.trim(), abre = $('#lAbre').value, cierra = $('#lCierra').value;
   if (!NOMBRE_EQUIPO.test(nombre)) return error('#lout', 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).');
   if (aMinutos(cierra) <= aMinutos(abre)) return error('#lout', 'La hora de cierre debe ser después de la de apertura.');
+  const valorAnticipacion = $('#lAnticipacion').value.trim();
+  const diasAnticipacion = Number(valorAnticipacion);
+  const diasDisponibles = [...document.querySelectorAll('#lDias input:checked')].map(input => Number(input.value));
+  if (!valorAnticipacion || !Number.isInteger(diasAnticipacion) || diasAnticipacion < 0 || diasAnticipacion > 365) {
+    return error('#lout', 'La anticipación debe ser un número entero entre 0 y 365 días.');
+  }
+  if (!diasDisponibles.length) return error('#lout', 'Selecciona al menos un día disponible.');
   let r;
-  try { r = await api.labGuardar({ admin: estado.admin, id: editando, nombre, ubicacion: $('#lUbicacion').value.trim(), abre, cierra }); }
+  try { r = await api.labGuardar({ admin: estado.admin, id: editando, nombre, ubicacion: $('#lUbicacion').value.trim(), abre, cierra, diasAnticipacion, diasDisponibles }); }
   catch (e) { r = sinConexion; }
   if (r.error) return error('#lout', r.error);
   $('#modalLab').close();
@@ -113,16 +150,42 @@ export function quitarOcupacion(fecha, inicio, fin, recargar) {
     () => api.labLiberar({ admin: estado.admin, lab: lab.id, fecha, inicio, fin }), recargar);
 }
 
-export function iniciarAdminLabs(recargar, verCalendario) {
+export function iniciarAdminLabs(recargar, verCalendario, abrirDetalle) {
   verLab = verCalendario;
-  const horas = bloques.map(t => `<option>${aHora(t)}</option>`).join('');
-  const fines = bloques.map(t => `<option>${aHora(t + 30)}</option>`).join('');
+  alDetalle = abrirDetalle;
+  recursosLab = iniciarResourceList({
+    listSelector: '#listaImplementosLab',
+    addSelector: '#nuevoImplementoLab',
+    title: 'implemento',
+    emptyText: 'Este laboratorio todavía no tiene implementos.',
+    getItems: () => implementosLabTodos().filter(item => item.lab === labImplementos),
+    getId: item => item.id,
+    getName: item => item.nombre,
+    getColor: item => item.color,
+    getContext: () => ({ lab: labImplementos }),
+    save: ({ id, nombre, color, context }) => api.labImplementoGuardar({
+      admin: estado.admin, lab: context.lab, id, nombre, color
+    }),
+    remove: ({ item, context }) => api.labImplementoQuitar({
+      admin: estado.admin, lab: context.lab, id: item.id
+    }),
+    confirmRemove: item => `¿Quitar "${item.nombre}"? No se podrá reservar en este laboratorio.`,
+    onSaved: recargar
+  });
+  $('#adminVistaLaboratorios').onclick = ev => clic(ev, recargar);
+  $('#nuevoLab').onclick = () => abrirLab();
+  $('#listaUsoLab').onclick = ev => {
+    const boton = ev.target.closest('[data-uso-del]');
+    if (!boton) return;
+    const [lab, fecha, inicio, fin] = boton.dataset.usoDel.split('|');
+    ejecutar(`¿Quitar la ocupación del ${fecha} de ${inicio} a ${fin}?`,
+      () => api.labLiberar({ admin: estado.admin, lab, fecha, inicio, fin }), recargar);
+  };
+  const horas = Array.from({ length: 48 }, (_, i) => `<option>${aHora(i * 30)}</option>`).join('');
+  const fines = Array.from({ length: 48 }, (_, i) => `<option>${aHora((i + 1) * 30)}</option>`).join('');
   $('#lAbre').innerHTML = horas;    $('#lCierra').innerHTML = fines;
   $('#uIni').innerHTML = horas;     $('#uFin').innerHTML = fines;
 
-  $('#adminLabs').onclick = ev => clic(ev, recargar);
-  $('#adminUsoLab').onclick = ev => clic(ev, recargar);
-  $('#nuevoLab').onclick = () => abrirLab();
   $('#nuevoUso').onclick = () => abrirUso();
   $('#lCerrar').onclick = () => $('#modalLab').close();
   $('#lGuardar').onclick = () => guardarLab(recargar);

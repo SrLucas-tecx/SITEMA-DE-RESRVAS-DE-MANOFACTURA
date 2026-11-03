@@ -3,7 +3,7 @@ import { CFG } from './config.js';
 import { aMinutos, ahora, chocan, hoy, sumarDias, esFinDeSemana } from './utils.js';
 
 // Primer día que ya se puede apartar (hoy + días de anticipación)
-export const fechaMinima = () => sumarDias(hoy(), CFG.DIAS_ANTICIPACION);
+export const fechaMinima = (dias = CFG.DIAS_ANTICIPACION) => sumarDias(hoy(), dias);
 
 // Nombre permitido para un material (letras, números, espacios y + - / ( ) .)
 export const NOMBRE_EQUIPO = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 +\-\/().]{1,30}$/;

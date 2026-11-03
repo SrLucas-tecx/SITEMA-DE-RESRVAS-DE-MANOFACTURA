@@ -38,7 +38,7 @@ export function dibujarLabs() {
 }
 
 // Clics: elegir laboratorio · celda libre · bloque ocupado · día (semana y mes)
-export function iniciarLabs({ alLibre, alOcupado, alDia }) {
+export function iniciarLabs({ alLibre, alOcupado, alReserva, alDia }) {
   $('#listaLabsPublica').onclick = ev => {
     const boton = ev.target.closest('[data-lab]');
     if (!boton) return;
@@ -46,9 +46,10 @@ export function iniciarLabs({ alLibre, alOcupado, alDia }) {
     dibujarLabs();
   };
   $('#vistaLab').onclick = ev => {
-    const el = ev.target.closest('td, th');
+    const el = ev.target.closest('[data-lab-item], [data-lab-res], [data-uso]') || ev.target.closest('td, th');
     if (!el) return;
-    if (el.dataset.labT) alLibre(el.dataset.labF, el.dataset.labT);
+    if (el.dataset.labT) alLibre(el.dataset.labF, el.dataset.labT, el.dataset.labItem);
+    else if (el.dataset.labRes) alReserva(el.dataset.labRes);
     else if (el.dataset.uso) alOcupado(...el.dataset.uso.split('|'));
     else if (el.dataset.ir) alDia(el.dataset.ir);
   };
