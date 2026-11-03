@@ -209,12 +209,17 @@
         <label>Duración <select id="dur"></select></label>
       </div>
       <div class="dias">
-        <label>Días a apartar (elige una fecha para agregarla; puedes elegir varias del mismo mes)
+        <label class="switch"><input type="checkbox" id="variosDias"> ¿Reservar varios días?</label>
+        <label>Día a apartar (activa varios días para agregar más fechas)
           <input type="date" id="fechaR">
         </label>
         <div id="fechasSel"></div>
+        <div class="eq" id="eq"></div>
+        <div id="eqPorFecha"></div>
       </div>
-      <div class="eq" id="eq"></div>
+      <label>Número de personas
+        <input type="number" id="personas" min="1" step="1" inputmode="numeric" required>
+      </label>
       <label>Otros (opcional: proyector, herramientas, qué vas a hacer…)
         <input id="otros" maxlength="200">
       </label>

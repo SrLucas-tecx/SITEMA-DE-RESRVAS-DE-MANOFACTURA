@@ -11,7 +11,7 @@ const CFG = {
   DIAS_ANTICIPACION: 5,                    // hay que apartar con al menos 5 días de anticipación
   DIAS_LAB_DEFAULT: [1, 2, 3, 4, 5],      // lunes a viernes
   ADMIN: 'maestro123',                     // código del maestro: CÁMBIALO
-  VERSION: 'v13',                          // sube este número cuando cambies el script (la web lo compara)
+  VERSION: 'v14',                          // sube este número cuando cambies el script (la web lo compara)
   DIAS_HISTORIAL: 30                       // reservas más viejas pasan a "Historial"
 };
 
@@ -19,7 +19,7 @@ const CFG = {
 const EQUIPOS_INICIALES = [['Celda', '#00D26A'], ['Brazo', '#2BC5C5'], ['Banda + Cámara', '#F2B705'], ['Cortadora', '#B79CFF']];
 const NOMBRE_OK = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 +\-\/().]{1,30}$/;
 
-const COLS = ['id', 'creado', 'fecha', 'inicio', 'fin', 'equipos', 'nombre', 'matricula', 'pin', 'estado', 'otros'];
+const COLS = ['id', 'creado', 'fecha', 'inicio', 'fin', 'equipos', 'nombre', 'matricula', 'pin', 'estado', 'otros', 'personas'];
 const HOJAS = {
   Reservas: COLS, Historial: COLS,
   Bloqueos: ['fecha', 'inicio', 'fin', 'motivo'],
@@ -29,7 +29,7 @@ const HOJAS = {
   ConfiguracionCelda: ['clave', 'valor'],
   UsoLab: ['lab', 'fecha', 'inicio', 'fin', 'motivo'],   // ratos en que un laboratorio está ocupado
   ImplementosLab: ['id', 'lab', 'nombre', 'color'],
-  ReservasLab: ['id', 'creado', 'lab', 'fecha', 'inicio', 'fin', 'implementos', 'nombre', 'matricula', 'pin', 'estado', 'otros']
+  ReservasLab: ['id', 'creado', 'lab', 'fecha', 'inicio', 'fin', 'implementos', 'nombre', 'matricula', 'pin', 'estado', 'otros', 'personas']
 };
 const TZ = Session.getScriptTimeZone();
 
@@ -81,6 +81,15 @@ function hoja(nombre) {
     sh.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold');
     sh.setFrozenRows(1);
     if (nombre === 'Equipos') EQUIPOS_INICIALES.forEach(e => sh.appendRow(e));
+  } else {
+    const columnas = HOJAS[nombre];
+    const ultima = Math.max(sh.getLastColumn(), 1);
+    const encabezados = sh.getRange(1, 1, 1, ultima).getValues()[0].map(String);
+    const faltantes = columnas.filter(c => !encabezados.includes(c));
+    if (faltantes.length) {
+      sh.getRange(1, ultima + 1, 1, faltantes.length).setValues([faltantes]).setFontWeight('bold');
+      sh.getRange(1, ultima + 1, sh.getMaxRows(), faltantes.length).setNumberFormat('@');
+    }
   }
   return sh;
 }
@@ -96,6 +105,11 @@ function leer(nombre) {
     });
 }
 const leerEquipos = () => leer('Equipos').filter(e => e.nombre);
+function equiposParaFecha(r, fecha) {
+  if (!Array.isArray(r.equiposPorFecha)) return Array.isArray(r.equipos) ? r.equipos : [];
+  const dia = r.equiposPorFecha.find(x => x.fecha === fecha);
+  return dia && Array.isArray(dia.equipos) ? dia.equipos : [];
+}
 const salida = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 
 function leerConfiguracionCelda() {
@@ -123,7 +137,7 @@ function doGet() {
   const desde = Utilities.formatDate(corte, TZ, 'yyyy-MM-dd');   // se envían los últimos 30 días y los futuros
   const res = leer('Reservas').filter(r => r.fecha >= desde).map(r => ({
     id: r.id, fecha: r.fecha, inicio: r.inicio, fin: r.fin,
-    equipos: lista(r.equipos), nombre: r.nombre, estado: r.estado, otros: r.otros || ''
+    equipos: lista(r.equipos), nombre: r.nombre, estado: r.estado, otros: r.otros || '', personas: r.personas || ''
   })); // nunca se envían matrícula ni código
   const blq = leer('Bloqueos').filter(b => b.fecha && b.fecha >= desde)
     .map(b => ({ fecha: b.fecha, inicio: b.inicio, fin: b.fin, motivo: b.motivo }));
@@ -145,7 +159,7 @@ function doGet() {
     .map(i => ({ id: i.id, lab: i.lab, nombre: i.nombre, color: i.color }));
   const resLab = leer('ReservasLab').filter(r => r.fecha >= desde).map(r => ({
     id: r.id, lab: r.lab, fecha: r.fecha, inicio: r.inicio, fin: r.fin,
-    equipos: lista(r.implementos), nombre: r.nombre, estado: r.estado, otros: r.otros || ''
+    equipos: lista(r.implementos), nombre: r.nombre, estado: r.estado, otros: r.otros || '', personas: r.personas || ''
   }));
   return salida({ res, blq, equipos, autorizados, configuracionCelda, laboratorios, usoLab, implementosLab, resLab, version: CFG.VERSION });
 }
@@ -165,15 +179,14 @@ function doPost(e) {
 function crear(r) {
   const config = leerConfiguracionCelda();
   const nombre = String(r.nombre || '').trim(), mat = String(r.matricula || '').trim();
-  const eq = Array.isArray(r.equipos) ? r.equipos : [];
+  const personas = r.personas === undefined || r.personas === null ? 1 : Number(r.personas);
   const fechas = [...new Set(Array.isArray(r.fechas) ? r.fechas : [r.fecha])];   // uno o varios días
   if (nombre.length < 3) return { error: 'Escribe tu nombre completo.' };
   if (mat.length < 4) return { error: 'Escribe tu matrícula.' };
+  if (!Number.isSafeInteger(personas) || personas < 1) return { error: 'El número de personas debe ser un entero mayor que cero.' };
   const validos = leerEquipos().map(e => e.nombre);
-  const noValidos = eq.filter(x => validos.indexOf(x) < 0);
-  if (!eq.length) return { error: 'Elige al menos una parte de la celda.' };
-  if (noValidos.length) return { error: 'El servidor no reconoce: ' + noValidos.join(', ') + '. Puede que el administrador lo haya quitado; recarga la página.' };
   if (!fechas.length || fechas.length > CFG.MAX_DIAS) return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' fechas.' };
+  if (r.variosDias === false && fechas.length > 1) return { error: 'Solo se permite una fecha si no activas la reserva de varios días.' };
   if (fechas.some(dia => !/^\d{4}-\d{2}-\d{2}$/.test(dia))) return { error: 'Fecha inválida.' };
   if (new Set(fechas.map(dia => dia.slice(0, 7))).size > 1) return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
   if (!/^\d{2}:\d{2}$/.test(r.inicio) || !/^\d{2}:\d{2}$/.test(r.fin)) return { error: 'Hora inválida.' };
@@ -187,21 +200,29 @@ function crear(r) {
   const lim = new Date(); lim.setDate(lim.getDate() + config.diasAnticipacion);
   const minimo = Utilities.formatDate(lim, TZ, 'yyyy-MM-dd');   // primer día que ya se puede apartar
   for (const dia of fechas) {
+    const eqDia = equiposParaFecha(r, dia);
+    if (!eqDia.length) return { error: dia + ': elige al menos un material para este día.' };
+    const noValidos = eqDia.filter(x => validos.indexOf(x) < 0);
+    if (noValidos.length) return { error: 'El servidor no reconoce: ' + noValidos.join(', ') + '. Puede que el administrador lo haya quitado; recarga la página.' };
     if (dia < minimo) return { error: dia + ': hay que apartar con ' + config.diasAnticipacion + ' días de anticipación (primer día disponible: ' + minimo + ').' };
     if (esFinDeSemana(dia) && permitidos.indexOf(dia) < 0) return { error: dia + ': los sábados y domingos no se pueden apartar (solo con autorización del administrador).' };
     if (dia + ' ' + r.inicio < ahora()) return { error: dia + ': ese horario ya pasó.' };
     for (const b of bloqueos)
       if (b.fecha === dia && i < mins(b.fin) && f > mins(b.inicio)) return { error: dia + ': horario no disponible (' + (b.motivo || 'bloqueado') + ').' };
     for (const x of reservas)
-      if (x.estado === 'Activa' && x.fecha === dia && i < mins(x.fin) && f > mins(x.inicio) && choca(lista(x.equipos), eq))
+      if (x.estado === 'Activa' && x.fecha === dia && i < mins(x.fin) && f > mins(x.inicio) && choca(lista(x.equipos), eqDia))
         return { error: dia + ': ya está ocupado (' + x.equipos + ' de ' + x.inicio + ' a ' + x.fin + ').' };
   }
 
   const pin = String(1000 + Math.floor(Math.random() * 9000));   // un código para todos los días
   const sh = hoja('Reservas');
-  fechas.forEach(dia => sh.appendRow(
-    [Utilities.getUuid().slice(0, 8), ahora(), dia, r.inicio, r.fin, eq.join(', '), nombre, mat, pin, 'Activa', String(r.otros || '').trim().slice(0, 200)]
-  ));
+  fechas.forEach(dia => {
+    const eqDia = equiposParaFecha(r, dia);
+    sh.appendRow([
+      Utilities.getUuid().slice(0, 8), ahora(), dia, r.inicio, r.fin, eqDia.join(', '),
+      nombre, mat, pin, 'Activa', String(r.otros || '').trim().slice(0, 200), personas
+    ]);
+  });
   return { ok: 1, pin: pin, n: fechas.length };
 }
 
@@ -469,16 +490,16 @@ function labImplementoQuitar(o) {
 
 function crearReservaLab(r) {
   const nombre = String(r.nombre || '').trim(), mat = String(r.matricula || '').trim();
-  const implementos = Array.isArray(r.equipos) ? r.equipos : [];
+  const personas = r.personas === undefined || r.personas === null ? 1 : Number(r.personas);
   const lab = leer('Laboratorios').find(l => l.id === r.lab);
   if (!lab) return { error: 'Laboratorio no encontrado.' };
   if (nombre.length < 3) return { error: 'Escribe tu nombre completo.' };
   if (mat.length < 4) return { error: 'Escribe tu matrícula.' };
+  if (!Number.isSafeInteger(personas) || personas < 1) return { error: 'El número de personas debe ser un entero mayor que cero.' };
   const validos = leer('ImplementosLab').filter(i => i.lab === r.lab).map(i => i.nombre);
-  if (!implementos.length) return { error: 'Elige al menos un implemento.' };
-  if (implementos.some(x => validos.indexOf(x) < 0)) return { error: 'El servidor no reconoce uno de los implementos. Recarga la página.' };
   const fechas = [...new Set(Array.isArray(r.fechas) ? r.fechas : [])];
   if (!fechas.length || fechas.length > CFG.MAX_DIAS) return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' fechas.' };
+  if (r.variosDias === false && fechas.length > 1) return { error: 'Solo se permite una fecha si no activas la reserva de varios días.' };
   if (fechas.some(dia => !/^\d{4}-\d{2}-\d{2}$/.test(dia))) return { error: 'Fecha inválida.' };
   if (new Set(fechas.map(dia => dia.slice(0, 7))).size > 1) return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
   if (!/^\d{2}:\d{2}$/.test(r.inicio) || !/^\d{2}:\d{2}$/.test(r.fin)) return { error: 'Hora inválida.' };
@@ -495,20 +516,26 @@ function crearReservaLab(r) {
   const ocupaciones = leer('UsoLab').filter(u => u.lab === r.lab);
   const reservas = leer('ReservasLab').filter(x => x.lab === r.lab);
   for (const dia of fechas) {
+    const implementosDia = equiposParaFecha(r, dia);
+    if (!implementosDia.length) return { error: dia + ': elige al menos un implemento para este día.' };
+    if (implementosDia.some(x => validos.indexOf(x) < 0)) return { error: 'El servidor no reconoce uno de los implementos. Recarga la página.' };
     if (dia < minimo) return { error: dia + ': este laboratorio requiere ' + diasAnticipacion + ' días de anticipación (primer día disponible: ' + minimo + ').' };
     if (diasDisponibles.indexOf(diaSemana(dia)) < 0) return { error: dia + ': este laboratorio no está disponible ese día de la semana.' };
     if (esFinDeSemana(dia) && autorizados.indexOf(dia) < 0) return { error: dia + ': los sábados y domingos no se pueden apartar (solo con autorización del administrador).' };
     if (dia + ' ' + r.inicio < ahora()) return { error: dia + ': ese horario ya pasó.' };
     if (ocupaciones.some(u => u.fecha === dia && inicio < mins(u.fin) && fin > mins(u.inicio))) return { error: dia + ': el laboratorio está ocupado por una actividad.' };
-    if (reservas.some(x => x.estado === 'Activa' && x.fecha === dia && inicio < mins(x.fin) && fin > mins(x.inicio) && choca(lista(x.implementos), implementos))) {
+    if (reservas.some(x => x.estado === 'Activa' && x.fecha === dia && inicio < mins(x.fin) && fin > mins(x.inicio) && choca(lista(x.implementos), implementosDia))) {
       return { error: dia + ': uno de los implementos ya está reservado en ese horario.' };
     }
   }
   const pin = String(1000 + Math.floor(Math.random() * 9000));
-  fechas.forEach(dia => hoja('ReservasLab').appendRow([
-    Utilities.getUuid().slice(0, 8), ahora(), r.lab, dia, r.inicio, r.fin,
-    implementos.join(', '), nombre, mat, pin, 'Activa', String(r.otros || '').trim().slice(0, 200)
-  ]));
+  fechas.forEach(dia => {
+    const implementosDia = equiposParaFecha(r, dia);
+    hoja('ReservasLab').appendRow([
+      Utilities.getUuid().slice(0, 8), ahora(), r.lab, dia, r.inicio, r.fin,
+      implementosDia.join(', '), nombre, mat, pin, 'Activa', String(r.otros || '').trim().slice(0, 200), personas
+    ]);
+  });
   return { ok: 1, pin, n: fechas.length };
 }
 

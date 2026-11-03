@@ -36,7 +36,8 @@ export function htmlDiaLab(lab) {
           const filas = Math.max(1, (aMinutos(x.reserva.fin) - t) / 30);
           resto[k] = filas - 1;
           html += `<td class="o" rowspan="${filas}" style="--col:${item.color}" data-lab-res="${escapar(x.reserva.id)}">` +
-            `<b>${escapar(x.reserva.nombre.split(' ')[0])}</b><small>${x.reserva.inicio}–${x.reserva.fin}</small></td>`;
+            `<b>${escapar(x.reserva.nombre.split(' ')[0])}</b><small>${x.reserva.inicio}–${x.reserva.fin}</small>` +
+            (x.reserva.personas ? `<small>${escapar(String(x.reserva.personas))} personas</small>` : '') + '</td>';
         } else {
           html += '<td class="x"></td>';
         }
@@ -74,7 +75,7 @@ export function htmlSemanaLab(lab) {
           return `<i class="libre lab-resource-free" data-lab-f="${d}" data-lab-t="${aHora(t)}" data-lab-item="${escapar(item.nombre)}" title="${escapar(item.nombre)} · Libre"></i>`;
         }
         if (slot.reserva) {
-          return `<i class="lab-booked" style="background:${item.color}" data-lab-res="${escapar(slot.reserva.id)}" title="${escapar(item.nombre)} · ${escapar(slot.reserva.nombre)} · ${slot.reserva.inicio}–${slot.reserva.fin}"></i>`;
+          return `<i class="lab-booked" style="background:${item.color}" data-lab-res="${escapar(slot.reserva.id)}" title="${escapar(item.nombre)} · ${escapar(slot.reserva.nombre)} · ${slot.reserva.inicio}–${slot.reserva.fin}${slot.reserva.personas ? ` · ${escapar(String(slot.reserva.personas))} personas` : ''}"></i>`;
         }
         return `<i class="no" title="${escapar(item.nombre)} · ${escapar(slot.motivo)}"></i>`;
       }).join('');

@@ -36,3 +36,9 @@ MODO ADMINISTRADOR
   de 08:00 a 20:00 y con 5 días de anticipación.
   En la vista pública de Laboratorios, "Días disponibles" lista solo las fechas con
   implementos y horarios libres para el laboratorio seleccionado.
+
+RESERVAS
+  El formulario permite apartar un solo día o activar "Reservar varios días" para
+  agregar varias fechas del mismo mes. Los materiales seleccionados se copian por
+  defecto a cada fecha y se pueden desmarcar individualmente. Indica también el
+  número entero de personas que asistirán.

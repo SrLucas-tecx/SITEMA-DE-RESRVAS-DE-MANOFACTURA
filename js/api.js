@@ -35,6 +35,12 @@ const diasLabValidos = dias => Array.isArray(dias) && dias.length > 0 &&
   dias.every(dia => Number.isInteger(dia) && dia >= 0 && dia <= 6) &&
   new Set(dias).size === dias.length;
 const diasLab = lab => diasLabValidos(lab.diasDisponibles) ? lab.diasDisponibles : CFG.DIAS_LAB_DEFAULT;
+const equiposParaFecha = (r, fecha) => {
+  if (!Array.isArray(r.equiposPorFecha)) return Array.isArray(r.equipos) ? r.equipos : [];
+  return r.equiposPorFecha.find(dia => dia.fecha === fecha)?.equipos || [];
+};
+const numeroPersonas = valor => valor === undefined || valor === null
+  ? 1 : Number.isSafeInteger(Number(valor)) && Number(valor) >= 1 ? Number(valor) : null;
 const configuracionCeldaLocal = () => ({
   nombre: CFG.NOMBRE_CELDA, abre: CFG.HORA_INI, cierra: CFG.HORA_FIN,
   diasAnticipacion: CFG.DIAS_ANTICIPACION, ...leerLS(LSC, {})
@@ -59,6 +65,8 @@ const Local = {
 
   async create(r) {
     const todas = cargarLocal();
+    const personas = numeroPersonas(r.personas);
+    if (personas === null) return { error: 'El número de personas debe ser un entero mayor que cero.' };
     if (!Array.isArray(r.fechas) || !r.fechas.length || r.fechas.length > CFG.MAX_DIAS) {
       return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' fechas.' };
     }
@@ -68,16 +76,19 @@ const Local = {
     if (new Set(r.fechas.map(fecha => fecha.slice(0, 7))).size > 1) {
       return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
     }
+    if (r.variosDias === false && r.fechas.length > 1) {
+      return { error: 'Solo se permite una fecha si no activas la reserva de varios días.' };
+    }
     // Se validan todos los días antes de guardar ninguno
     for (const f of r.fechas) {
-      const error = validar({ ...r, fecha: f }, todas, bloqueosTodos(), leerLS(LSA, []));
+      const error = validar({ ...r, fecha: f, equipos: equiposParaFecha(r, f) }, todas, bloqueosTodos(), leerLS(LSA, []));
       if (error) return { error: f + ': ' + error };
     }
 
     const pin = String(1000 + Math.floor(Math.random() * 9000));   // un código para todos los días
     r.fechas.forEach((f, i) => {
-      const { fechas, ...resto } = r;
-      todas.push({ ...resto, fecha: f, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
+      const { fechas, equiposPorFecha, variosDias, ...resto } = r;
+      todas.push({ ...resto, equipos: equiposParaFecha(r, f), personas, fecha: f, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
     });
     guardarLocal(todas);
     return { ok: 1, pin, n: r.fechas.length };
@@ -276,14 +287,15 @@ const Local = {
   },
 
   async createLab(r) {
+    const personas = numeroPersonas(r.personas);
+    if (personas === null) return { error: 'El número de personas debe ser un entero mayor que cero.' };
     const lab = leerLS(LSL, []).find(l => l.id === r.lab);
     if (!lab) return { error: 'Laboratorio no encontrado.' };
     const implementos = implementosLocal().filter(i => i.lab === r.lab).map(i => i.nombre);
     if (!r.nombre || r.nombre.trim().length < 3) return { error: 'Escribe tu nombre completo.' };
     if (!r.matricula || r.matricula.trim().length < 4) return { error: 'Escribe tu matrícula.' };
-    if (!Array.isArray(r.equipos) || !r.equipos.length) return { error: 'Elige al menos un implemento.' };
-    if (r.equipos.some(e => !implementos.includes(e))) return { error: 'El servidor no reconoce uno de los implementos. Recarga la página.' };
     if (!Array.isArray(r.fechas) || !r.fechas.length || r.fechas.length > CFG.MAX_DIAS) return { error: `Elige entre 1 y ${CFG.MAX_DIAS} fechas.` };
+    if (r.variosDias === false && r.fechas.length > 1) return { error: 'Solo se permite una fecha si no activas la reserva de varios días.' };
     if (r.fechas.some(f => !/^\d{4}-\d{2}-\d{2}$/.test(f))) return { error: 'Fecha inválida.' };
     if (new Set(r.fechas.map(f => f.slice(0, 7))).size > 1) return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
     const inicio = aMinutos(r.inicio), fin = aMinutos(r.fin);
@@ -297,19 +309,22 @@ const Local = {
       ? Number(lab.diasAnticipacion) : CFG.DIAS_ANTICIPACION;
     const disponibles = diasLab(lab);
     for (const fecha of r.fechas) {
+      const equiposDia = equiposParaFecha(r, fecha);
+      if (!equiposDia.length) return { error: `${fecha}: elige al menos un implemento para este día.` };
+      if (equiposDia.some(e => !implementos.includes(e))) return { error: 'El servidor no reconoce uno de los implementos. Recarga la página.' };
       if (fecha < sumarDias(hoy(), diasAnticipacion)) return { error: `${fecha}: este laboratorio requiere ${diasAnticipacion} días de anticipación.` };
       if (!disponibles.includes(diaSemana(fecha))) return { error: `${fecha}: este laboratorio no está disponible ese día de la semana.` };
       if (esFinDeSemana(fecha) && !autorizados.some(a => a.fecha === fecha)) return { error: `${fecha}: los sábados y domingos no se pueden apartar (solo con autorización del administrador).` };
       if (fecha + ' ' + r.inicio < ahora()) return { error: `${fecha}: ese horario ya pasó.` };
-      if (reservas.some(x => x.estado === 'Activa' && x.lab === r.lab && x.fecha === fecha && inicio < aMinutos(x.fin) && fin > aMinutos(x.inicio) && x.equipos.some(e => r.equipos.includes(e)))) {
+      if (reservas.some(x => x.estado === 'Activa' && x.lab === r.lab && x.fecha === fecha && inicio < aMinutos(x.fin) && fin > aMinutos(x.inicio) && x.equipos.some(e => equiposDia.includes(e)))) {
         return { error: `${fecha}: uno de los implementos ya está reservado en ese horario.` };
       }
       if (usos.some(u => u.lab === r.lab && u.fecha === fecha && inicio < aMinutos(u.fin) && fin > aMinutos(u.inicio))) return { error: `${fecha}: el laboratorio está ocupado por una actividad.` };
     }
     const pin = String(1000 + Math.floor(Math.random() * 9000));
     r.fechas.forEach((fecha, i) => {
-      const { fechas, ...resto } = r;
-      reservas.push({ ...resto, fecha, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
+      const { fechas, equiposPorFecha, variosDias, ...resto } = r;
+      reservas.push({ ...resto, equipos: equiposParaFecha(r, fecha), personas, fecha, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
     });
     localStorage.setItem(LSRL, JSON.stringify(reservas));
     return { ok: 1, pin, n: r.fechas.length };

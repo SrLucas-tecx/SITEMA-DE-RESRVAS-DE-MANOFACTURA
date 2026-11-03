@@ -121,7 +121,7 @@ export function dibujarAdmin() {
     .map(x => {
       const activa = x.estado === 'Activa';
       const lab = x.tipo === 'lab' ? laboratorios().find(l => l.id === x.lab) : null;
-      return `<li class="admin-reserva-row ${activa ? '' : 'can'}"><span class="admin-row-info"><b>${x.fecha}</b> · ${x.inicio}–${x.fin} · ${lab ? escapar(lab.nombre) + ' · ' : ''}${escapar(x.equipos.join(', '))} · ${escapar(x.nombre)}${activa ? '' : ' (cancelado)'}</span>` +
+      return `<li class="admin-reserva-row ${activa ? '' : 'can'}"><span class="admin-row-info"><b>${x.fecha}</b> · ${x.inicio}–${x.fin} · ${lab ? escapar(lab.nombre) + ' · ' : ''}${escapar(x.equipos.join(', '))} · ${escapar(x.nombre)}${x.personas ? ` · ${escapar(String(x.personas))} personas` : ''}${activa ? '' : ' (cancelado)'}</span>` +
         `<span class="acc">${activa ? `<button data-r-cancel="${x.id}" data-r-tipo="${x.tipo}">Cancelar</button>` : ''}` +
         `<button class="peligro" data-r-del="${x.id}" data-r-tipo="${x.tipo}">Eliminar</button></span></li>`;
     }).join('') || '<li class="sub">Sin reservas próximas.</li>';
@@ -163,6 +163,7 @@ export function abrirAdminReserva(id, tipo = 'celda') {
   const x = (tipo === 'lab' ? reservasLabTodos() : estado.datos.res).find(y => y.id === id);
   const lab = tipo === 'lab' ? laboratorios().find(l => l.id === x.lab) : null;
   $('#ainfo').innerHTML = `<b>${escapar(x.nombre)}</b><br>${x.fecha} · ${x.inicio}–${x.fin}${lab ? `<br>${escapar(lab.nombre)}` : ''}<br>${escapar(x.equipos.join(', '))}` +
+    (x.personas ? `<br>Personas: ${escapar(String(x.personas))}` : '') +
     (x.otros ? `<br>Otros: ${escapar(x.otros)}` : '');
   $('#adout').innerHTML = '';
   $('#modalAdmin').showModal();

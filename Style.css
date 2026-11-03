@@ -109,12 +109,16 @@ aside li small { color: var(--m); }
 .eq input { width: auto; margin: 0; }
 
 .dias { margin-top: 12px; }
+.dias > .switch { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--t); }
+.dias > .switch input { width: auto; margin: 0; }
 #fechasSel { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .fchip {
   display: inline-flex; align-items: center; gap: 4px; background: var(--dark); color: #fff;
   border-radius: 999px; padding: 3px 6px 3px 12px; font-size: 13px;
 }
 .fchip button { background: transparent; border: 0; color: #7fe3b4; padding: 0 4px; font-size: 14px; }
+.eq-dia { margin-top: 10px; }
+.eq-dia > b { display: block; margin-bottom: 4px; }
 
 /* =====================================================
    CALENDARIO

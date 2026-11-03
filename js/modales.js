@@ -8,6 +8,8 @@ import { bloques } from './horario.js';
 
 const casillas = () => [...document.querySelectorAll('#eq input')];
 let fechasSel = [];   // días elegidos para esta reserva
+let equiposPorFecha = new Map();
+let fechasPersonalizadas = new Set();
 let reservaLab = null;
 let tipoCancelar = 'celda';
 
@@ -26,6 +28,22 @@ function primerDiaLab(lab, fecha) {
 function dibujarFechas() {
   $('#fechasSel').innerHTML = fechasSel.map(f =>
     `<span class="fchip">${etiqueta(f)} <button type="button" data-q="${f}" title="Quitar">✕</button></span>`).join('');
+  dibujarEquiposPorFecha();
+}
+
+function dibujarEquiposPorFecha() {
+  const contenedor = $('#eqPorFecha');
+  if (!$('#variosDias').checked || fechasSel.length < 2) {
+    contenedor.innerHTML = '';
+    return;
+  }
+  const opciones = casillas();
+  contenedor.innerHTML = fechasSel.map(fecha =>
+    `<section class="eq-dia"><b>Material para ${etiqueta(fecha)}</b><div class="eq">` +
+      (opciones.length ? opciones.map(c =>
+        `<label><input type="checkbox" data-fecha="${fecha}" value="${escapar(c.value)}"${equiposPorFecha.get(fecha)?.includes(c.value) ? ' checked' : ''}>${escapar(c.value)}</label>`).join('')
+        : '<span class="sub">Selecciona primero el material que quieres reservar.</span>') +
+    '</div></section>').join('');
 }
 
 function agregarFecha() {
@@ -47,17 +65,23 @@ function agregarFecha() {
     $('#out').innerHTML = '<div class="msg e">Los sábados y domingos no se pueden apartar (solo con autorización del administrador).</div>';
     return;
   }
-  if (fechasSel.length && f.slice(0, 7) !== fechasSel[0].slice(0, 7)) {
+  if ($('#variosDias').checked && fechasSel.length && f.slice(0, 7) !== fechasSel[0].slice(0, 7)) {
     $('#out').innerHTML = '<div class="msg e">Todas las fechas de una reserva deben pertenecer al mismo mes.</div>';
     return;
   }
-  if (fechasSel.length >= CFG.MAX_DIAS) {
+  if ($('#variosDias').checked && fechasSel.length >= CFG.MAX_DIAS) {
     $('#out').innerHTML = `<div class="msg e">Máximo ${CFG.MAX_DIAS} fechas por reserva.</div>`;
     return;
   }
   $('#out').innerHTML = '';
+  if (!$('#variosDias').checked) {
+    fechasSel = [];
+    equiposPorFecha.clear();
+    fechasPersonalizadas.clear();
+  }
   fechasSel.push(f);
   fechasSel.sort();
+  equiposPorFecha.set(f, casillas().filter(c => c.checked).map(c => c.value));
   dibujarFechas();
 }
 
@@ -78,12 +102,17 @@ export function abrirApartar(fecha, inicio, equipo) {
   let primero = minimo;                       // primer día que se puede apartar (sin fin de semana cerrado)
   while (diaProhibido(primero)) primero = sumarDias(primero, 1);
   fechasSel = [fecha && fecha >= minimo && !diaProhibido(fecha) ? fecha : primero];
-  dibujarFechas();
   dibujarEquipos();
+  equiposPorFecha = new Map();
+  fechasPersonalizadas = new Set();
+  $('#variosDias').checked = false;
+  $('#personas').value = '';
   if (inicio) {
     $('#inicio').value = inicio;
     casillas().forEach(c => c.checked = (c.value === equipo));
   }
+  equiposPorFecha.set(fechasSel[0], casillas().filter(c => c.checked).map(c => c.value));
+  dibujarFechas();
   $('#formApartar').hidden = false;
   $('#exito').hidden = true;
   $('#out').innerHTML = '';
@@ -99,17 +128,22 @@ export function abrirApartarLab(fecha, inicio, labId, nombreImplemento) {
   $('#fechaR').min = minimo;
   const primero = primerDiaLab(lab, minimo);
   fechasSel = [fecha && fecha >= minimo && !diaProhibido(fecha) && disponibleLab(lab, fecha) ? fecha : primero];
-  dibujarFechas();
   const disponibles = inicio ? implementosDeLab(lab).filter(item =>
     !usoLabTodos().some(u => u.lab === lab.id && u.fecha === fechasSel[0] && aMinutos(inicio) < aMinutos(u.fin) && aMinutos(inicio) >= aMinutos(u.inicio)) &&
     !reservasLabTodos().some(r => r.estado === 'Activa' && r.lab === lab.id && r.fecha === fechasSel[0] &&
       aMinutos(r.inicio) <= aMinutos(inicio) && aMinutos(inicio) < aMinutos(r.fin) && r.equipos.includes(item.nombre)))
     : implementosDeLab(lab);
   dibujarEquipos(disponibles);
+  equiposPorFecha = new Map();
+  fechasPersonalizadas = new Set();
+  $('#variosDias').checked = false;
+  $('#personas').value = '';
   if (inicio) {
     $('#inicio').value = inicio;
     casillas().forEach(c => c.checked = c.value === nombreImplemento);
   }
+  equiposPorFecha.set(fechasSel[0], casillas().filter(c => c.checked).map(c => c.value));
+  dibujarFechas();
   $('#formApartar').hidden = false;
   $('#exito').hidden = true;
   $('#out').innerHTML = '';
@@ -121,13 +155,17 @@ export function abrirCancelar(id, tipo = 'celda') {
   estado.seleccionada = id;
   const x = (tipo === 'lab' ? reservasLabTodos() : estado.datos.res).find(y => y.id === id);
   const laboratorio = tipo === 'lab' ? laboratorios().find(l => l.id === x.lab) : null;
-  $('#cinfo').textContent = `${x.fecha} · ${laboratorio ? laboratorio.nombre + ' · ' : ''}${x.nombre} · ${x.equipos.join(', ')} · ${x.inicio}–${x.fin}`;
+  $('#cinfo').textContent = `${x.fecha} · ${laboratorio ? laboratorio.nombre + ' · ' : ''}${x.nombre} · ${x.equipos.join(', ')} · ${x.inicio}–${x.fin}${x.personas ? ` · ${x.personas} personas` : ''}`;
   $('#cout').innerHTML = '';
   $('#modalCancelar').showModal();
 }
 
 /* ---------- Acciones ---------- */
 async function apartar(recargar) {
+  if (CFG.API_URL && estado.datos.version !== CFG.SCRIPT_VERSION) {
+    $('#out').innerHTML = '<div class="msg e">El servidor de reservas está desactualizado. Pide al administrador que publique la nueva versión antes de apartar.</div>';
+    return;
+  }
   const inicio = $('#inicio').value;
   agregarFecha();   // si dejaron una fecha escrita sin agregar, se cuenta
   const r = {
@@ -137,6 +175,12 @@ async function apartar(recargar) {
     inicio: inicio,
     fin: aHora(aMinutos(inicio) + 30 * $('#dur').value),
     equipos: casillas().filter(c => c.checked).map(c => c.value),
+    equiposPorFecha: fechasSel.map(fecha => ({
+      fecha,
+      equipos: equiposPorFecha.get(fecha) || casillas().filter(c => c.checked).map(c => c.value)
+    })),
+    variosDias: $('#variosDias').checked,
+    personas: $('#personas').value,
     fechas: [...fechasSel]
   };
 
@@ -147,7 +191,14 @@ async function apartar(recargar) {
     $('#out').innerHTML = '<div class="msg e">Elige al menos un día.</div>';
     return;
   }
+  const personas = Number(r.personas);
+  if (!r.personas || !Number.isSafeInteger(personas) || personas < 1) {
+    $('#out').innerHTML = '<div class="msg e">Escribe un número entero de personas (mínimo 1).</div>';
+    return;
+  }
+  r.personas = personas;
   for (const f of r.fechas) {
+    const equiposDia = r.equiposPorFecha.find(dia => dia.fecha === f)?.equipos || [];
     let error;
     if (reservaLab) {
       const inicioMin = aMinutos(r.inicio), finMin = aMinutos(r.fin);
@@ -155,16 +206,16 @@ async function apartar(recargar) {
       const minimo = fechaMinima(diasAnticipacion);
       if (!r.nombre.trim() || r.nombre.trim().length < 3) error = 'Escribe tu nombre completo.';
       else if (!r.matricula.trim() || r.matricula.trim().length < 4) error = 'Escribe tu matrícula.';
-      else if (!r.equipos.length) error = 'Elige al menos un implemento.';
+      else if (!equiposDia.length) error = 'Elige al menos un implemento para este día.';
       else if (f < minimo) error = `Este laboratorio requiere ${diasAnticipacion} días de anticipación. Primer día disponible: ${minimo}.`;
       else if (!disponibleLab(reservaLab, f)) error = 'Este laboratorio no está disponible ese día de la semana.';
       else if (diaProhibido(f)) error = 'Los sábados y domingos no se pueden apartar (solo con autorización del administrador).';
       else if (inicioMin < aMinutos(reservaLab.abre) || finMin > aMinutos(reservaLab.cierra)) error = 'Fuera del horario de apertura del laboratorio.';
       else if (f + ' ' + r.inicio < ahora()) error = 'Ese horario ya pasó.';
       else if (usoLabTodos().some(u => u.lab === reservaLab.id && u.fecha === f && inicioMin < aMinutos(u.fin) && finMin > aMinutos(u.inicio))) error = 'El laboratorio está ocupado por una actividad.';
-      else if (reservasLabTodos().some(x => x.estado === 'Activa' && x.lab === reservaLab.id && x.fecha === f && inicioMin < aMinutos(x.fin) && finMin > aMinutos(x.inicio) && x.equipos.some(e => r.equipos.includes(e)))) error = 'Uno de los implementos ya está reservado en ese horario.';
+      else if (reservasLabTodos().some(x => x.estado === 'Activa' && x.lab === reservaLab.id && x.fecha === f && inicioMin < aMinutos(x.fin) && finMin > aMinutos(x.inicio) && x.equipos.some(e => equiposDia.includes(e)))) error = 'Uno de los implementos ya está reservado en ese horario.';
     } else {
-      error = validar({ ...r, fecha: f }, activas, estado.datos.blq, autorizados());
+      error = validar({ ...r, fecha: f, equipos: equiposDia }, activas, estado.datos.blq, autorizados());
     }
     if (error) {
       const dia = r.fechas.length > 1 ? etiqueta(f) + ': ' : '';
@@ -191,6 +242,7 @@ async function apartar(recargar) {
     $('#nombre').value = '';
     $('#matricula').value = '';
     $('#otros').value = '';
+    $('#personas').value = '';
     reservaLab = null;
   }
   recargar();
@@ -228,7 +280,33 @@ export function iniciarModales(recargar) {
     const q = ev.target.dataset.q;
     if (!q) return;
     fechasSel = fechasSel.filter(f => f !== q);
+    equiposPorFecha.delete(q);
+    fechasPersonalizadas.delete(q);
     dibujarFechas();
+  };
+  $('#variosDias').onchange = () => {
+    if (!$('#variosDias').checked && fechasSel.length > 1) {
+      fechasSel = fechasSel.slice(0, 1);
+      equiposPorFecha = new Map([[fechasSel[0], equiposPorFecha.get(fechasSel[0]) || []]]);
+      fechasPersonalizadas = new Set(fechasPersonalizadas.has(fechasSel[0]) ? [fechasSel[0]] : []);
+    }
+    dibujarFechas();
+  };
+  $('#eq').onchange = () => {
+    const seleccionados = casillas().filter(c => c.checked).map(c => c.value);
+    fechasSel.forEach(fecha => {
+      if (!fechasPersonalizadas.has(fecha)) equiposPorFecha.set(fecha, seleccionados);
+    });
+    dibujarEquiposPorFecha();
+  };
+  $('#eqPorFecha').onchange = ev => {
+    const input = ev.target.closest('input[data-fecha]');
+    if (!input) return;
+    const fecha = input.dataset.fecha;
+    const seleccionados = [...document.querySelectorAll('#eqPorFecha input[data-fecha]:checked')]
+      .filter(c => c.dataset.fecha === fecha).map(c => c.value);
+    equiposPorFecha.set(fecha, seleccionados);
+    fechasPersonalizadas.add(fecha);
   };
 
   // Botones

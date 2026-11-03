@@ -30,6 +30,7 @@ function dibujarLista() {
     .map(x => {
       const activa = x.estado === 'Activa';
       return `<li class="${activa ? '' : 'can'}">${x.inicio}–${x.fin} · ${escapar(x.equipos.join(', '))} · ${escapar(x.nombre)}` +
+        (x.personas ? ` · ${escapar(String(x.personas))} personas` : '') +
         (x.otros ? `<br><small>Otros: ${escapar(x.otros)}</small>` : '') + (activa ? '' : ' (cancelado)') + '</li>';
     });
   $('#lista').innerHTML = filas.join('') || '<li class="sub">Sin reservas este día.</li>';
