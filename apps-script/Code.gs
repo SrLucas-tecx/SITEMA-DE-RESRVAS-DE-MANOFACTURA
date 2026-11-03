@@ -218,7 +218,7 @@ function cancelar(o) {
   return { ok: 1 };
 }
 
-// ---------- Limpieza diaria: pasa lo viejo a "Historial" ----------
+// ---------- Limpieza diaria: pasa lo viejo a "Historial           " ----------
 function limpiar() {
   const sh = hoja('Reservas'), hist = hoja('Historial');
   const corte = new Date(); corte.setDate(corte.getDate() - CFG.DIAS_HISTORIAL);

@@ -2,7 +2,7 @@
 
 export const CFG = {
   // URL del Apps Script. Si está vacía, la web funciona en modo local de pruebas.
-  API_URL: 'https://script.google.com/macros/s/AKfycbx7vI5wPBpMMGzlFF0VdPN5w-AOGWGw0dKFR7oF5wiRdyYVMDur7ZPT-hJl30H88-qX/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbx2zSXy7LflJz8yZ6L5ls9cqZn68KRX6pRZg1fHmJ7OSEgLh3g2JLrPrRlacTVuLwo/exec',
 
   HORA_INI: '08:00',   // la celda abre
   HORA_FIN: '20:00',   // la celda cierra
