@@ -210,10 +210,12 @@
       </div>
       <div class="dias">
         <label class="switch"><input type="checkbox" id="variosDias"> ¿Reservar varios días?</label>
-        <label>Día a apartar (activa varios días para agregar más fechas)
-          <input type="date" id="fechaR">
-        </label>
-        <div id="fechasSel"></div>
+        <div id="controlesVariosDias" hidden>
+          <label>Días a apartar (elige una fecha para agregarla)
+            <input type="date" id="fechaR">
+          </label>
+          <div id="fechasSel"></div>
+        </div>
         <div class="eq" id="eq"></div>
         <div id="eqPorFecha"></div>
       </div>

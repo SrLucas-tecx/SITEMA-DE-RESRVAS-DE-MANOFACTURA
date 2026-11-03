@@ -106,6 +106,8 @@ export function abrirApartar(fecha, inicio, equipo) {
   equiposPorFecha = new Map();
   fechasPersonalizadas = new Set();
   $('#variosDias').checked = false;
+  $('#controlesVariosDias').hidden = true;
+  $('#fechaR').value = '';
   $('#personas').value = '';
   if (inicio) {
     $('#inicio').value = inicio;
@@ -137,6 +139,8 @@ export function abrirApartarLab(fecha, inicio, labId, nombreImplemento) {
   equiposPorFecha = new Map();
   fechasPersonalizadas = new Set();
   $('#variosDias').checked = false;
+  $('#controlesVariosDias').hidden = true;
+  $('#fechaR').value = '';
   $('#personas').value = '';
   if (inicio) {
     $('#inicio').value = inicio;
@@ -285,11 +289,13 @@ export function iniciarModales(recargar) {
     dibujarFechas();
   };
   $('#variosDias').onchange = () => {
+    $('#controlesVariosDias').hidden = !$('#variosDias').checked;
     if (!$('#variosDias').checked && fechasSel.length > 1) {
       fechasSel = fechasSel.slice(0, 1);
       equiposPorFecha = new Map([[fechasSel[0], equiposPorFecha.get(fechasSel[0]) || []]]);
       fechasPersonalizadas = new Set(fechasPersonalizadas.has(fechasSel[0]) ? [fechasSel[0]] : []);
     }
+    if (!$('#variosDias').checked) $('#fechaR').value = '';
     dibujarFechas();
   };
   $('#eq').onchange = () => {
