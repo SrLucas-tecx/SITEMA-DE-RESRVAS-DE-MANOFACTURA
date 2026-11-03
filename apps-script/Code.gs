@@ -6,10 +6,10 @@
 const CFG = {
   HORA_INI: '08:00', HORA_FIN: '20:00',   // igual que en el HTML
   MAX_BLOQUES: 3,                          // 3 bloques de 30 min = 1 h 30 min
-  MAX_DIAS: 5,                             // días que se pueden apartar en una sola reserva
+  MAX_DIAS: 31,                            // fechas máximas por reserva, siempre del mismo mes
   DIAS_ANTICIPACION: 5,                    // hay que apartar con al menos 5 días de anticipación
   ADMIN: 'maestro123',                     // código del maestro: CÁMBIALO
-  VERSION: 'v8',                           // sube este número cuando cambies el script (la web lo compara)
+  VERSION: 'v9',                           // sube este número cuando cambies el script (la web lo compara)
   DIAS_HISTORIAL: 30                       // reservas más viejas pasan a "Historial"
 };
 
@@ -124,7 +124,9 @@ function crear(r) {
   const noValidos = eq.filter(x => validos.indexOf(x) < 0);
   if (!eq.length) return { error: 'Elige al menos una parte de la celda.' };
   if (noValidos.length) return { error: 'El servidor no reconoce: ' + noValidos.join(', ') + '. Puede que el administrador lo haya quitado; recarga la página.' };
-  if (!fechas.length || fechas.length > CFG.MAX_DIAS) return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' días.' };
+  if (!fechas.length || fechas.length > CFG.MAX_DIAS) return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' fechas.' };
+  if (fechas.some(dia => !/^\d{4}-\d{2}-\d{2}$/.test(dia))) return { error: 'Fecha inválida.' };
+  if (new Set(fechas.map(dia => dia.slice(0, 7))).size > 1) return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
   if (!/^\d{2}:\d{2}$/.test(r.inicio) || !/^\d{2}:\d{2}$/.test(r.fin)) return { error: 'Hora inválida.' };
   const i = mins(r.inicio), f = mins(r.fin);
   if (i % 30 !== 0 || f % 30 !== 0 || (f - i) < 30 || (f - i) > (30 * CFG.MAX_BLOQUES)) return { error: 'Duración máxima: ' + (CFG.MAX_BLOQUES * 30) + ' minutos.' };
@@ -136,7 +138,6 @@ function crear(r) {
   const lim = new Date(); lim.setDate(lim.getDate() + CFG.DIAS_ANTICIPACION);
   const minimo = Utilities.formatDate(lim, TZ, 'yyyy-MM-dd');   // primer día que ya se puede apartar
   for (const dia of fechas) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return { error: 'Fecha inválida.' };
     if (dia < minimo) return { error: dia + ': hay que apartar con ' + CFG.DIAS_ANTICIPACION + ' días de anticipación (primer día disponible: ' + minimo + ').' };
     if (esFinDeSemana(dia) && permitidos.indexOf(dia) < 0) return { error: dia + ': los sábados y domingos no se pueden apartar (solo con autorización del administrador).' };
     if (dia + ' ' + r.inicio < ahora()) return { error: dia + ': ese horario ya pasó.' };

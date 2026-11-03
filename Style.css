@@ -281,7 +281,7 @@ body:not(.admin) #enlinea, body:not(.admin) #modo { display: none; }
 
 /* ===== Ventana de avisos y días disponibles ===== */
 #mTexto { white-space: pre-line; margin: 10px 0 0; }
-.dias-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 10px; }
+.dias-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 10px; max-height: 55vh; overflow-y: auto; }
 .dia-btn { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; line-height: 1.2; background: #e2f6ea; border-color: #7cc79b; }
 .dia-btn:hover { background: #c4f0d6; }
 .dia-btn span, .dia-btn small { font-size: 11px; text-transform: uppercase; color: var(--m); }

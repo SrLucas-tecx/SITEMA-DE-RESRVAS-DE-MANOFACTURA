@@ -30,8 +30,12 @@ function agregarFecha() {
     $('#out').innerHTML = '<div class="msg e">Los sábados y domingos no se pueden apartar (solo con autorización del administrador).</div>';
     return;
   }
+  if (fechasSel.length && f.slice(0, 7) !== fechasSel[0].slice(0, 7)) {
+    $('#out').innerHTML = '<div class="msg e">Todas las fechas de una reserva deben pertenecer al mismo mes.</div>';
+    return;
+  }
   if (fechasSel.length >= CFG.MAX_DIAS) {
-    $('#out').innerHTML = `<div class="msg e">Máximo ${CFG.MAX_DIAS} días por reserva.</div>`;
+    $('#out').innerHTML = `<div class="msg e">Máximo ${CFG.MAX_DIAS} fechas por reserva.</div>`;
     return;
   }
   $('#out').innerHTML = '';

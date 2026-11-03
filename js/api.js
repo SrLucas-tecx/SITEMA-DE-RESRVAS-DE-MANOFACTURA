@@ -37,8 +37,14 @@ const Local = {
 
   async create(r) {
     const todas = cargarLocal();
-    if (!r.fechas || !r.fechas.length || r.fechas.length > CFG.MAX_DIAS) {
-      return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' días.' };
+    if (!Array.isArray(r.fechas) || !r.fechas.length || r.fechas.length > CFG.MAX_DIAS) {
+      return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' fechas.' };
+    }
+    if (r.fechas.some(fecha => typeof fecha !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha))) {
+      return { error: 'Fecha inválida.' };
+    }
+    if (new Set(r.fechas.map(fecha => fecha.slice(0, 7))).size > 1) {
+      return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
     }
     // Se validan todos los días antes de guardar ninguno
     for (const f of r.fechas) {
