@@ -3,9 +3,9 @@ RESERVAS · CELDA DE MANUFACTURA
 ESTRUCTURA (la carpeta js debe quedar JUNTO a index.html y con TODOS sus archivos)
   index.html
   style.css
-  js/            (config, utils, horario, estado, validacion, api, mensajes, disponibles,
-                  vistaDia, vistaSemana, vistaMes, calendario, labDatos, vistaLab,
-                  laboratorios, modales, adminLabs, admin, main)  -> 19 archivos
+  js/            (config, utils, horario, estado, validacion, procesando, api, mensajes,
+                  disponibles, vistaDia, vistaSemana, vistaMes, calendario, labDatos,
+                  vistaLab, laboratorios, modales, adminLabs, admin, main)  -> 20 archivos
   apps-script/Code.gs   (NO se sube a GitHub: se pega en Google Apps Script)
 
 PROBAR EN LA COMPU

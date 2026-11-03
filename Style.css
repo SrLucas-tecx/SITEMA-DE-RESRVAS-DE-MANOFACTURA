@@ -35,6 +35,8 @@ body {
   background: var(--dark); color: #fff;
   padding: 16px; border-bottom: 4px solid var(--green);
 }
+.top-titulo { display: flex; align-items: center; gap: 12px; }
+.logo-titulo { width: 48px; height: 48px; object-fit: contain; flex: 0 0 auto; border-radius: 10px; }
 .top h1 { margin: 0; font-size: 20px; }
 .top p  { margin: 2px 0 0; color: #7fe3b4; font-size: 13px; }
 .top-der { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -225,6 +227,7 @@ li { margin: 4px 0; }
 @media (max-width: 700px) {
   main { padding: 10px; }
   .top { padding: 12px; }
+  .logo-titulo { width: 40px; height: 40px; }
   .top h1 { font-size: 17px; }
   .card { padding: 10px; }
 
@@ -322,3 +325,24 @@ td.lo { background: repeating-linear-gradient(135deg, #fff3cd 0 10px, #ffe9a8 10
 td.lo b { display: block; line-height: 1.2; }
 td.lo small { display: block; font-size: 11px; opacity: .75; }
 body.admin td.lo { cursor: pointer; }
+
+/* ===== Indicador "Procesando…" ===== */
+.procesando {
+  display: none; position: fixed; inset: auto auto 24px 50%; transform: translateX(-50%); margin: 0; border: 0;
+  padding: 10px 18px; gap: 10px; align-items: center; border-radius: 999px;
+  background: var(--dark); color: #fff; font-weight: 600; box-shadow: 0 4px 16px rgba(0, 32, 31, .35);
+  z-index: 9999; pointer-events: none;
+}
+.procesando.visible { display: flex; }          /* navegadores sin popover */
+.procesando:popover-open { display: flex; }     /* queda por encima de las ventanas abiertas */
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, .3); border-top-color: var(--green);
+  animation: giro .8s linear infinite;
+}
+@keyframes giro { to { transform: rotate(360deg); } }
+
+/* Mientras se procesa: cursor de espera y sin doble clic en los botones */
+body.ocupado { cursor: progress; }
+body.ocupado button { pointer-events: none; }
+body.ocupado dialog button { opacity: .6; }

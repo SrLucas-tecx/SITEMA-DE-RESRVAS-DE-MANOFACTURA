@@ -4,13 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reservas · Celda de Manufactura</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/svg+xml" href="logo-fondo.svg">
+  <link rel="stylesheet" href="Style.css">
 </head>
 <body>
   <header class="top">
-    <div>
-      <h1>Reservas · Celda de Manufactura</h1>
-      <p id="modo"></p>
+    <div class="top-titulo">
+      <img class="logo-titulo" src="logo-fondo.svg" alt="Logo de Celda de Manufactura">
+      <div>
+        <h1>Reservas · Celda de Manufactura</h1>
+        <p id="modo"></p>
+      </div>
     </div>
     <div class="top-der">
       <span class="enlinea cargando" id="enlinea">Conectando…</span>
@@ -320,6 +324,11 @@
       <button class="p" id="mAceptar">Entendido</button>
     </div>
   </dialog>
+
+  <!-- Indicador "Procesando…" (js/procesando.js) -->
+  <div id="procesando" class="procesando" popover="manual" role="status" aria-live="polite">
+    <span class="spinner"></span><span id="procesandoTexto">Procesando…</span>
+  </div>
 
   <script type="module" src="js/main.js"></script>
 </body>

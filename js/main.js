@@ -1,7 +1,7 @@
 /* Punto de entrada: junta los módulos y arranca la página */
 import { CFG } from './config.js';
 import { $, hoy, sumarDias, sumarMeses } from './utils.js';
-import { api } from './api.js';
+import { api, apiDirecta } from './api.js';
 import { estado } from './estado.js';
 import { dibujar, iniciarCalendario } from './calendario.js';
 import { iniciarModales, abrirApartar, abrirCancelar } from './modales.js';
@@ -38,9 +38,9 @@ function conexionPerdida() {
 }
 
 // Lee las reservas (de Sheets o local) y redibuja
-async function cargar() {
+async function cargar(silencioso) {
   try {
-    const datos = await api.list();
+    const datos = await (silencioso ? apiDirecta : api).list();
     if (!datos.res) throw new Error('respuesta inválida');
     estado.datos = datos;
     avisado = false;
@@ -88,7 +88,7 @@ document.querySelectorAll('[data-v]').forEach(b => {
 
 // Si el navegador pierde o recupera internet
 window.addEventListener('offline', conexionPerdida);
-window.addEventListener('online', cargar);
+window.addEventListener('online', () => cargar());
 
 // Arranque
 iniciarCalendario({
@@ -106,4 +106,4 @@ iniciarLabs({
 });
 iniciarDias(fecha => { estado.fecha = fecha; estado.vista = 'dia'; dibujar(); });
 cargar();
-setInterval(cargar, 60000);   // se actualiza solo cada minuto
+setInterval(() => cargar(true), 60000);   // se actualiza solo cada minuto

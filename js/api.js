@@ -2,6 +2,7 @@
 import { CFG } from './config.js';
 import { validar, NOMBRE_EQUIPO } from './validacion.js';
 import { hoy, esFinDeSemana } from './utils.js';
+import { conIndicador } from './procesando.js';
 
 /* Modo LOCAL: guarda en este navegador (solo pruebas) */
 const LS = 'reservas_celda_v1';
@@ -183,15 +184,19 @@ const Local = {
 };
 
 /* Modo REMOTO: habla con el Apps Script (Google Sheets) */
+// Si el servidor no responde en 25 s se corta la petición (así la página nunca se queda esperando para siempre)
+async function pedir(url, opciones) {
+  const control = new AbortController();
+  const corte = setTimeout(() => control.abort(), 25000);
+  try {
+    const respuesta = await fetch(url, { ...opciones, signal: control.signal });
+    return await respuesta.json();
+  } finally { clearTimeout(corte); }
+}
+
 const Remote = {
-  async list() {
-    const respuesta = await fetch(CFG.API_URL + '?action=list');
-    return respuesta.json();
-  },
-  async post(datos) {
-    const respuesta = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify(datos) });
-    return respuesta.json();
-  },
+  list() { return pedir(CFG.API_URL + '?action=list'); },
+  post(datos) { return pedir(CFG.API_URL, { method: 'POST', body: JSON.stringify(datos) }); },
   create(r) { return this.post({ action: 'create', ...r }); },
   cancel(o) { return this.post({ action: 'cancel', ...o }); },
   admin(codigo) { return this.post({ action: 'admin', admin: codigo }); },
@@ -209,4 +214,16 @@ const Remote = {
 };
 
 // Si hay URL se usa Google Sheets; si no, el modo local
-export const api = CFG.API_URL ? Remote : Local;
+const base = CFG.API_URL ? Remote : Local;
+
+// Cada llamada muestra el indicador "Procesando…" mientras espera al servidor
+const TEXTOS = { list: 'Cargando…', create: 'Guardando tu reserva…', cancel: 'Cancelando…', admin: 'Verificando…', borrar: 'Eliminando…' };
+export const api = new Proxy(base, {
+  get(objeto, nombre) {
+    const f = objeto[nombre];
+    return typeof f === 'function' ? (...args) => conIndicador(() => f.apply(objeto, args), TEXTOS[nombre]) : f;
+  }
+});
+
+// Sin indicador: para la actualización automática de cada minuto (no debe verse)
+export const apiDirecta = base;
