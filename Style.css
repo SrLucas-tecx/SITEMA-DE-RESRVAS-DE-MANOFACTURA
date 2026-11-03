@@ -228,30 +228,64 @@ li { margin: 4px 0; }
 .banner-admin span { font-weight: 700; margin-right: auto; }
 
 /* ===== Responsivo ===== */
-@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .layout > * { min-width: 0; }
+}
 @media (max-width: 700px) {
   main { padding: 10px; }
-  .top { padding: 12px; }
+  .top { padding: 12px; align-items: flex-start; }
+  .top-titulo { min-width: 0; }
   .logo-titulo { width: 40px; height: 40px; }
-  .top h1 { font-size: 17px; }
+  .top h1 { font-size: 17px; line-height: 1.25; }
+  .top-der { width: 100%; justify-content: flex-end; }
   .card { padding: 10px; }
 
-  .nav input[type="date"] { flex: 1; min-width: 130px; }
-  .nav .p { margin-left: 0; width: 100%; padding: 12px; }
+  #pantallaCalendario > .nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+  }
+  #pantallaCalendario > .nav > * { min-width: 0; }
+  #pantallaCalendario > .nav #prev { grid-area: 1 / 1; }
+  #pantallaCalendario > .nav #fecha { grid-area: 1 / 2 / 2 / 4; width: 100%; }
+  #pantallaCalendario > .nav #next { grid-area: 1 / 4; }
+  #pantallaCalendario > .nav #hoy { grid-area: 2 / 1; }
+  #pantallaCalendario > .nav #abrirDias { grid-area: 2 / 2 / 3 / 5; }
+  #pantallaCalendario > .nav .vistas { grid-area: 3 / 1 / 4 / 5; }
+  #pantallaCalendario > .nav #abrirApartar {
+    grid-area: 4 / 1 / 5 / 5;
+    width: 100%;
+    margin: 0;
+    padding: 12px;
+  }
+  .nav button { min-height: 42px; }
+
   .vistas { width: 100%; }
   .vistas button { flex: 1; }
 
-  /* Calendario: cabe en pantalla sin deslizar de lado */
-  .tabla { min-width: 0; }
+  /* Mantiene legibles las columnas; el calendario se desplaza horizontalmente. */
+  .tabla.dia, .tabla.semana { min-width: 520px; }
+  .tabla.mes { min-width: 0; }
   .tabla th, .tabla td { font-size: 11px; }
   .tabla th { padding: 6px 2px; }
   .tabla th:first-child, .tabla td.h { width: 44px; }
   td.m { height: 64px; padding: 3px; }
 
-  dialog { padding: 16px; width: 94vw; }
+  dialog {
+    padding: 16px;
+    width: calc(100vw - 20px);
+    max-width: 560px;
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
   .acciones { flex-direction: column-reverse; }
   .acciones button { width: 100%; padding: 12px; }
   .codigo { font-size: 32px; letter-spacing: 5px; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; }
+  .tabs button { padding: 10px 8px; }
+  .admin-tabs { scrollbar-width: thin; }
+  .banner-admin span { flex-basis: 100%; }
 }
 
 /* ===== Pantalla del administrador ===== */
@@ -317,6 +351,23 @@ body:not(.admin) #enlinea, body:not(.admin) #modo { display: none; }
   .admin-lab-detail .cab > button { flex: 1 1 auto; }
   .lista-admin .admin-lab-row .acc { gap: 6px; }
   .lista-admin .admin-lab-row button { flex: 1 1 auto; }
+}
+
+@media (max-width: 420px) {
+  body { font-size: 14px; }
+  main { padding: 8px; }
+  .top { gap: 8px; padding: 10px; }
+  .top-titulo { gap: 8px; }
+  .top h1 { font-size: 15px; }
+  .card { border-radius: 12px; }
+  #pantallaCalendario > .nav { gap: 6px; padding: 8px; }
+  #pantallaCalendario > .nav button { padding: 8px 6px; font-size: 13px; }
+  #pantallaCalendario > .nav #abrirApartar { padding: 11px; font-size: 15px; }
+  .admin-tabs button { padding: 8px 10px; }
+  .lista-admin li { align-items: flex-start; flex-wrap: wrap; }
+  .lista-admin .acc { margin-left: 0; }
+  .lab-cab { flex-direction: column; }
+  .estado-lab { text-align: left; }
 }
 
 /* ===== Ventana de avisos y días disponibles ===== */
