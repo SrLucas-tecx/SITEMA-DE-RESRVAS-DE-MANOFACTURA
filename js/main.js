@@ -108,6 +108,8 @@ $('#hoy').onclick = () => irA(hoy());
 function cambiarSeccion(seccion) {
   estado.seccion = seccion;
   document.body.classList.toggle('sec-labs', seccion === 'labs');
+  $('#ayudaCelda').hidden = seccion === 'labs';
+  $('#ayudaLabs').hidden = seccion !== 'labs';
   document.querySelectorAll('[data-sec]').forEach(b => b.classList.toggle('on', b.dataset.sec === seccion));
   dibujar();
 }
@@ -134,7 +136,7 @@ window.addEventListener('online', () => cargar());
 // Arranque
 iniciarCalendario({
   alLibre: (hora, equipo) => abrirApartar(estado.fecha, hora, equipo),
-  alOcupada: id => estado.admin ? abrirAdminReserva(id) : abrirCancelar(id),
+  alOcupada: (id, equipo) => estado.admin ? abrirAdminReserva(id) : abrirCancelar(id, 'celda', equipo),
   alBloqueo: (inicio, fin) => estado.admin && quitarBloqueo(estado.fecha, inicio, fin, cargar),
   alDia: fecha => { estado.fecha = fecha; estado.vista = 'dia'; dibujar(); }
 });
@@ -142,7 +144,7 @@ iniciarModales(cargar);
 iniciarAdmin(cargar, irALab);
 iniciarLabs({
   alLibre: (fecha, hora, implemento) => abrirApartarLab(fecha, hora, estado.labId, implemento),
-  alReserva: id => estado.admin ? abrirAdminReserva(id, 'lab') : abrirCancelar(id, 'lab'),
+  alReserva: (id, equipo) => estado.admin ? abrirAdminReserva(id, 'lab') : abrirCancelar(id, 'lab', equipo),
   alOcupado: (fecha, inicio, fin) => estado.admin && quitarOcupacion(fecha, inicio, fin, cargar),
   alDia: fecha => { estado.fecha = fecha; estado.vista = 'dia'; dibujar(); }
 });

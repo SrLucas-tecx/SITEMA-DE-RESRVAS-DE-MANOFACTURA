@@ -46,4 +46,9 @@ RESERVAS
   El formulario permite apartar un solo día o activar "Reservar varios días" para
   agregar varias fechas del mismo mes. Los materiales seleccionados se copian por
   defecto a cada fecha y se pueden desmarcar individualmente. Indica también el
-  número entero de personas que asistirán.
+  número entero de personas que asistirán (máximo 30; cada laboratorio puede tener un
+  límite menor configurado por el administrador). Para cancelar, presiona la misma celda
+  reservada y elige cancelar toda la reserva o solo el material seleccionado.
+  Al cambiar Code.gs, publica una versión nueva de la aplicación web.
+  La fecha seleccionada se muestra junto al número de personas. Para cancelar una reserva,
+  presiona la misma celda reservada en la vista Día e ingresa tu matrícula y código de cancelación.

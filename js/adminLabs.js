@@ -25,7 +25,7 @@ export function dibujarAdminLabs() {
   const hoyStr = hoy(), nombres = Object.fromEntries(labs.map(l => [l.id, l.nombre]));
 
   $('#listaLabs').innerHTML = labs.map(l =>
-    `<li class="admin-lab-row"><span class="admin-row-info"><b>${escapar(l.nombre)}</b><small>${l.abre}–${l.cierra} · máximo ${((l.maxBloques ?? CFG.MAX_BLOQUES) * 30)} min${l.ubicacion ? ' · ' + escapar(l.ubicacion) : ''} · ${escapar(textoDias(diasLab(l)))}</small></span>` +
+    `<li class="admin-lab-row"><span class="admin-row-info"><b>${escapar(l.nombre)}</b><small>${l.abre}–${l.cierra} · máximo ${((l.maxBloques ?? CFG.MAX_BLOQUES) * 30)} min · ${l.maxPersonas ?? CFG.MAX_PERSONAS} personas${l.ubicacion ? ' · ' + escapar(l.ubicacion) : ''} · ${escapar(textoDias(diasLab(l)))}</small></span>` +
     `<span class="acc"><button class="p" data-lab-open="${escapar(l.id)}">Abrir laboratorio</button><button data-lab-ver="${escapar(l.id)}">Calendario</button><button data-lab-edit="${escapar(l.id)}">Editar</button>` +
     `<button class="peligro" data-lab-del="${escapar(l.id)}">Quitar</button></span></li>`).join('')
     || '<li class="sub">Todavía no hay laboratorios. Agrega el primero.</li>';
@@ -35,7 +35,7 @@ export function dibujarAdminLabs() {
   $('#adminLabDetalle').hidden = !labDetalle;
   if (labDetalle) {
     $('#adminLabNombre').textContent = labDetalle.nombre;
-    $('#adminLabInfo').textContent = `${labDetalle.abre}–${labDetalle.cierra} · máximo ${(labDetalle.maxBloques ?? CFG.MAX_BLOQUES) * 30} min por reserva${labDetalle.ubicacion ? ` · ${labDetalle.ubicacion}` : ''} · ${textoDias(diasLab(labDetalle))} · requiere ${labDetalle.diasAnticipacion ?? CFG.DIAS_ANTICIPACION} días de anticipación`;
+    $('#adminLabInfo').textContent = `${labDetalle.abre}–${labDetalle.cierra} · máximo ${(labDetalle.maxBloques ?? CFG.MAX_BLOQUES) * 30} min y ${labDetalle.maxPersonas ?? CFG.MAX_PERSONAS} personas por reserva${labDetalle.ubicacion ? ` · ${labDetalle.ubicacion}` : ''} · ${textoDias(diasLab(labDetalle))} · requiere ${labDetalle.diasAnticipacion ?? CFG.DIAS_ANTICIPACION} días de anticipación`;
     recursosLab?.dibujar();
   } else {
     labImplementos = null;
@@ -83,6 +83,7 @@ function abrirLab(id) {
   $('#lMaxDuracion').value = (lab ? lab.maxBloques ?? CFG.MAX_BLOQUES : CFG.MAX_BLOQUES) * 30;
   actualizarTopeDuracionLab();
   $('#lAnticipacion').value = lab ? (lab.diasAnticipacion ?? CFG.DIAS_ANTICIPACION) : CFG.DIAS_ANTICIPACION;
+  $('#lMaxPersonas').value = lab ? (lab.maxPersonas ?? CFG.MAX_PERSONAS) : CFG.MAX_PERSONAS;
   const dias = diasLab(lab);
   document.querySelectorAll('#lDias input').forEach(input => { input.checked = dias.includes(Number(input.value)); });
   $('#lout').innerHTML = '';
@@ -111,8 +112,13 @@ async function guardarLab(recargar) {
     return error('#lout', 'La anticipación debe ser un número entero entre 0 y 365 días.');
   }
   if (!diasDisponibles.length) return error('#lout', 'Selecciona al menos un día disponible.');
+  const maxPersonas = Number($('#lMaxPersonas').value);
+  if ($('#lMaxPersonas').value.trim() === '' || !Number.isInteger(maxPersonas) ||
+      maxPersonas < 1 || maxPersonas > CFG.MAX_PERSONAS) {
+    return error('#lout', `El máximo de personas debe ser un entero entre 1 y ${CFG.MAX_PERSONAS}.`);
+  }
   let r;
-  try { r = await api.labGuardar({ admin: estado.admin, id: editando, nombre, ubicacion: $('#lUbicacion').value.trim(), abre, cierra, diasAnticipacion, diasDisponibles, maxBloques }); }
+  try { r = await api.labGuardar({ admin: estado.admin, id: editando, nombre, ubicacion: $('#lUbicacion').value.trim(), abre, cierra, diasAnticipacion, diasDisponibles, maxBloques, maxPersonas }); }
   catch (e) { r = sinConexion; }
   if (r.error) return error('#lout', r.error);
   $('#modalLab').close();

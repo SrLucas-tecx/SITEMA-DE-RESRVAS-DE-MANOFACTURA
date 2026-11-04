@@ -2,7 +2,7 @@
 
 export const CFG = {
   // URL del Apps Script. Si está vacía, la web funciona en modo local de pruebas.
-  API_URL: 'https://script.google.com/macros/s/AKfycbxtOVjmLvw2Vb51usAdXoipWQDdix6axF83nCxS2t5afct2nMrDx2WVvLDqseEfd1Fe/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycby1nPwEekqQXI2hDZo5RavyJ96EoyzbFr7OWLrWZYDSuzx1_b6kgfEHqt010aXmCSNJ/exec',
 
   HORA_INI: '08:00',   // la celda abre
   HORA_FIN: '20:00',   // la celda cierra
@@ -10,9 +10,10 @@ export const CFG = {
   MAX_BLOQUES: 3,      // bloques de 30 min por reserva (3 = 1 h 30 min)
   MAX_BLOQUES_CELDA: 3,
   MAX_DIAS: 31,        // fechas máximas por reserva, siempre del mismo mes
+  MAX_PERSONAS: 30,   // máximo general de personas por reserva
   DIAS_ANTICIPACION: 5, // hay que apartar con al menos estos días de anticipación
   DIAS_LAB_DEFAULT: [1, 2, 3, 4, 5], // lunes a viernes
-  SCRIPT_VERSION: 'v18', // debe coincidir con VERSION en Code.gs (avisa si el script publicado está viejo)
+  SCRIPT_VERSION: 'v19', // debe coincidir con VERSION en Code.gs (avisa si el script publicado está viejo)
 
   // Solo para pruebas en modo local. En Google Sheets el código vive en Code.gs.
   ADMIN_LOCAL: '',

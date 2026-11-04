@@ -41,6 +41,11 @@ const maxBloquesLab = lab => {
     ? Number(lab.maxBloques) : CFG.MAX_BLOQUES;
   return Math.max(1, Math.min(configurado, disponibles));
 };
+const maxPersonasLab = lab => {
+  const maximo = Number(lab.maxPersonas);
+  return Number.isInteger(maximo) && maximo >= 1 && maximo <= CFG.MAX_PERSONAS
+    ? maximo : CFG.MAX_PERSONAS;
+};
 const equiposParaFecha = (r, fecha) => {
   if (!Array.isArray(r.equiposPorFecha)) return Array.isArray(r.equipos) ? r.equipos : [];
   return r.equiposPorFecha.find(dia => dia.fecha === fecha)?.equipos || [];
@@ -63,7 +68,9 @@ const Local = {
     return {
       res, blq: bloqueosTodos(), equipos: equiposLocal(), autorizados: leerLS(LSA, []),
       configuracionCelda: configuracionCeldaLocal(),
-      laboratorios: leerLS(LSL, []).map(l => ({ ...l, maxBloques: maxBloquesLab(l), diasDisponibles: diasLab(l) })),
+      laboratorios: leerLS(LSL, []).map(l => ({
+        ...l, maxBloques: maxBloquesLab(l), maxPersonas: maxPersonasLab(l), diasDisponibles: diasLab(l)
+      })),
       usoLab: leerLS(LSU, []), implementosLab: implementosLocal(),
       resLab: reservasLabLocal().map(({ matricula, pin, ...publico }) => publico)
     };
@@ -75,7 +82,9 @@ const Local = {
     if (r.autorizarDuracion === true && !duracionAutorizada) return NO_ADMIN;
     const maxBloques = Number(configuracionCeldaLocal().maxBloques) || CFG.MAX_BLOQUES_CELDA;
     const personas = numeroPersonas(r.personas);
-    if (personas === null) return { error: 'El número de personas debe ser un entero mayor que cero.' };
+    if (personas === null || personas > CFG.MAX_PERSONAS) {
+      return { error: `El número de personas debe ser un entero entre 1 y ${CFG.MAX_PERSONAS}.` };
+    }
     if (!Array.isArray(r.fechas) || !r.fechas.length || r.fechas.length > CFG.MAX_DIAS) {
       return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' fechas.' };
     }
@@ -117,10 +126,16 @@ const Local = {
       x.pin === String(o.codigo || '').trim();
     if (!esAdmin && !datosCorrectos) return { error: 'Matrícula o código incorrectos.' };
 
-    x.estado = 'Cancelada';
+    if (o.alcance === 'material') {
+      if (!Array.isArray(x.equipos) || !x.equipos.includes(o.equipo)) return { error: 'El material seleccionado no forma parte de esta reserva.' };
+      if (x.equipos.length < 2) return { error: 'Esta reserva solo tiene un material; cancélala completa.' };
+      x.equipos = x.equipos.filter(e => e !== o.equipo);
+    } else {
+      x.estado = 'Cancelada';
+    }
     if (o.tipo === 'lab') localStorage.setItem(LSRL, JSON.stringify(todas));
     else guardarLocal(todas);
-    return { ok: 1 };
+    return { ok: 1, parcial: o.alcance === 'material' };
   },
 
   // ----- Administrador -----
@@ -240,6 +255,9 @@ const Local = {
     const diasAnticipacion = Number(valorAnticipacion);
     const diasDisponibles = nuevo && (o.diasDisponibles === undefined || o.diasDisponibles === null)
       ? CFG.DIAS_LAB_DEFAULT.slice() : o.diasDisponibles;
+    const valorMaxPersonas = o.maxPersonas === undefined || o.maxPersonas === null
+      ? CFG.MAX_PERSONAS : o.maxPersonas;
+    const maxPersonas = Number(valorMaxPersonas);
     const valorMaxBloques = nuevo && (o.maxBloques === undefined || o.maxBloques === null)
       ? CFG.MAX_BLOQUES : o.maxBloques;
     if (!NOMBRE_EQUIPO.test(nombre)) return { error: 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).' };
@@ -255,8 +273,11 @@ const Local = {
       return { error: 'La duración máxima debe ser de al menos 30 minutos y no superar el horario disponible del laboratorio.' };
     }
     if (!diasLabValidos(diasDisponibles)) return { error: 'Selecciona al menos un día disponible.' };
+    if (valorMaxPersonas === '' || !Number.isInteger(maxPersonas) || maxPersonas < 1 || maxPersonas > CFG.MAX_PERSONAS) {
+      return { error: `El máximo de personas debe ser un entero entre 1 y ${CFG.MAX_PERSONAS}.` };
+    }
     if (lista.some(l => l.nombre.toLowerCase() === nombre.toLowerCase() && l.id !== o.id)) return { error: 'Ya existe un laboratorio con ese nombre.' };
-    const datos = { nombre, ubicacion: String(o.ubicacion || '').trim().slice(0, 60), abre, cierra, diasAnticipacion, diasDisponibles, maxBloques };
+    const datos = { nombre, ubicacion: String(o.ubicacion || '').trim().slice(0, 60), abre, cierra, diasAnticipacion, diasDisponibles, maxBloques, maxPersonas };
     const i = lista.findIndex(l => l.id === o.id);
     if (o.id && i < 0) return { error: 'Laboratorio no encontrado.' };
     const reservasActivas = reservasLabLocal().filter(r =>
@@ -321,9 +342,12 @@ const Local = {
     const duracionAutorizada = r.autorizarDuracion === true && esAdminLocal(r);
     if (r.autorizarDuracion === true && !duracionAutorizada) return NO_ADMIN;
     const personas = numeroPersonas(r.personas);
-    if (personas === null) return { error: 'El número de personas debe ser un entero mayor que cero.' };
     const lab = leerLS(LSL, []).find(l => l.id === r.lab);
     if (!lab) return { error: 'Laboratorio no encontrado.' };
+    const maxPersonas = maxPersonasLab(lab);
+    if (personas === null || personas > maxPersonas) {
+      return { error: `El número de personas debe ser un entero entre 1 y ${maxPersonas}.` };
+    }
     const implementos = implementosLocal().filter(i => i.lab === r.lab).map(i => i.nombre);
     if (!r.nombre || r.nombre.trim().length < 3) return { error: 'Escribe tu nombre completo.' };
     if (!r.matricula || r.matricula.trim().length < 4) return { error: 'Escribe tu matrícula.' };

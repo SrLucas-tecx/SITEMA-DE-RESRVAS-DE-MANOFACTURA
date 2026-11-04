@@ -7,11 +7,12 @@ const CFG = {
   HORA_INI: '08:00', HORA_FIN: '20:00',   // igual que en el HTML
   NOMBRE_CELDA: 'Celda de Manufactura',
   MAX_BLOQUES: 3,                          // duración máxima inicial: 1 h 30 min
+  MAX_PERSONAS: 30,                        // límite general de personas por reserva
   MAX_DIAS: 31,                            // fechas máximas por reserva, siempre del mismo mes
   DIAS_ANTICIPACION: 5,                    // hay que apartar con al menos 5 días de anticipación
   DIAS_LAB_DEFAULT: [1, 2, 3, 4, 5],      // lunes a viernes
   ADMIN: 'maestro123',                     // código del maestro: CÁMBIALO
-  VERSION: 'v18',                          // sube este número cuando cambies el script (la web lo compara)
+  VERSION: 'v19',                          // sube este número cuando cambies el script (la web lo compara)
   DIAS_HISTORIAL: 30                       // reservas más viejas pasan a "Historial"
 };
 
@@ -25,7 +26,7 @@ const HOJAS = {
   Bloqueos: ['fecha', 'inicio', 'fin', 'motivo'],
   Equipos: ['nombre', 'color'],
   Autorizados: ['fecha', 'motivo'],         // sábados y domingos que el administrador permitió
-  Laboratorios: ['id', 'nombre', 'ubicacion', 'abre', 'cierra', 'diasAnticipacion', 'diasDisponibles', 'maxBloques'],
+  Laboratorios: ['id', 'nombre', 'ubicacion', 'abre', 'cierra', 'diasAnticipacion', 'diasDisponibles', 'maxBloques', 'maxPersonas'],
   ConfiguracionCelda: ['clave', 'valor'],
   UsoLab: ['lab', 'fecha', 'inicio', 'fin', 'motivo'],   // ratos en que un laboratorio está ocupado
   ImplementosLab: ['id', 'lab', 'nombre', 'color'],
@@ -75,6 +76,12 @@ function maxBloquesLaboratorio(lab) {
   const configurado = lab.maxBloques !== '' && lab.maxBloques !== null &&
     lab.maxBloques !== undefined && Number.isInteger(valor) && valor > 0 ? valor : CFG.MAX_BLOQUES;
   return Math.max(1, Math.min(configurado, disponibles));
+}
+function maxPersonasLaboratorio(lab) {
+  const valor = Number(lab.maxPersonas);
+  return lab.maxPersonas !== '' && lab.maxPersonas !== null &&
+    lab.maxPersonas !== undefined && Number.isInteger(valor) &&
+    valor >= 1 && valor <= CFG.MAX_PERSONAS ? valor : CFG.MAX_PERSONAS;
 }
 
 // Devuelve la hoja; si falta (por ejemplo "Equipos" en una hoja anterior) se crea sola
@@ -162,8 +169,8 @@ function doGet() {
       diasAnticipacion: Number.isInteger(Number(l.diasAnticipacion)) &&
         l.diasAnticipacion !== '' && l.diasAnticipacion !== null && l.diasAnticipacion !== undefined
         ? Number(l.diasAnticipacion) : CFG.DIAS_ANTICIPACION,
-      diasDisponibles: diasLaboratorio(l.diasDisponibles)
-      ,maxBloques: maxBloquesLaboratorio(l)
+      diasDisponibles: diasLaboratorio(l.diasDisponibles),
+      maxBloques: maxBloquesLaboratorio(l), maxPersonas: maxPersonasLaboratorio(l)
     }));
   const usoLab = leer('UsoLab').filter(u => u.fecha && u.fecha >= desde)
     .map(u => ({ lab: u.lab, fecha: u.fecha, inicio: u.inicio, fin: u.fin, motivo: u.motivo || '' }));
@@ -197,7 +204,9 @@ function crear(r) {
   const fechas = [...new Set(Array.isArray(r.fechas) ? r.fechas : [r.fecha])];   // uno o varios días
   if (nombre.length < 3) return { error: 'Escribe tu nombre completo.' };
   if (mat.length < 4) return { error: 'Escribe tu matrícula.' };
-  if (!Number.isSafeInteger(personas) || personas < 1) return { error: 'El número de personas debe ser un entero mayor que cero.' };
+  if (!Number.isSafeInteger(personas) || personas < 1 || personas > CFG.MAX_PERSONAS) {
+    return { error: 'El número de personas debe ser un entero entre 1 y ' + CFG.MAX_PERSONAS + '.' };
+  }
   const validos = leerEquipos().map(e => e.nombre);
   if (!fechas.length || fechas.length > CFG.MAX_DIAS) return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' fechas.' };
   if (r.variosDias === false && fechas.length > 1) return { error: 'Solo se permite una fecha si no activas la reserva de varios días.' };
@@ -252,8 +261,17 @@ function cancelar(o) {
   } else if (!(x.matricula.toLowerCase() === String(o.matricula || '').trim().toLowerCase() && x.pin === String(o.codigo || '').trim())) {
     return { error: 'Matrícula o código incorrectos.' };
   }
+  if (o.alcance === 'material') {
+    const columna = o.tipo === 'lab' ? 'implementos' : 'equipos';
+    const usados = lista(x[columna]);
+    if (!o.equipo || usados.indexOf(o.equipo) < 0) return { error: 'El material seleccionado no forma parte de esta reserva.' };
+    if (usados.length < 2) return { error: 'Esta reserva solo tiene un material; cancélala completa.' };
+    const restantes = usados.filter(e => e !== o.equipo);
+    hoja(hojaReserva).getRange(x._fila, HOJAS[hojaReserva].indexOf(columna) + 1).setValue(restantes.join(', '));
+    return { ok: 1, parcial: true };
+  }
   hoja(hojaReserva).getRange(x._fila, HOJAS[hojaReserva].indexOf('estado') + 1).setValue('Cancelada');
-  return { ok: 1 };
+  return { ok: 1, parcial: false };
 }
 
 // ---------- Limpieza diaria: pasa lo viejo a "Historial           " ----------
@@ -431,6 +449,8 @@ function labGuardar(o) {
   const diasDisponibles = nuevo && (o.diasDisponibles === undefined || o.diasDisponibles === null)
     ? CFG.DIAS_LAB_DEFAULT.slice()
     : Array.isArray(o.diasDisponibles) ? o.diasDisponibles : [];
+  const maxPersonas = Number(o.maxPersonas === undefined || o.maxPersonas === null
+    ? CFG.MAX_PERSONAS : o.maxPersonas);
   if (!NOMBRE_OK.test(nombre)) return { error: 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).' };
   if (!HORA_OK.test(abre) || !HORA_OK.test(cierra) || mins(abre) % 30 || mins(cierra) % 30 ||
       mins(abre) < 0 || mins(abre) >= 1440 || mins(cierra) < 30 || mins(cierra) > 1440 ||
@@ -443,6 +463,9 @@ function labGuardar(o) {
       maxBloques * 30 > mins(cierra) - mins(abre)) {
     return { error: 'La duración máxima debe ser de al menos 30 minutos y no superar el horario disponible del laboratorio.' };
   }
+  if (o.maxPersonas === '' || !Number.isInteger(maxPersonas) || maxPersonas < 1 || maxPersonas > CFG.MAX_PERSONAS) {
+    return { error: 'El máximo de personas debe ser un entero entre 1 y ' + CFG.MAX_PERSONAS + '.' };
+  }
   if (!diasDisponibles.length || diasDisponibles.some((d, i) =>
       !Number.isInteger(d) || DIAS_VALIDOS.indexOf(d) < 0 || diasDisponibles.indexOf(d) !== i)) {
     return { error: 'Selecciona al menos un día disponible.' };
@@ -450,7 +473,7 @@ function labGuardar(o) {
   const labs = leer('Laboratorios').filter(l => l.id);
   if (labs.some(l => l.nombre.toLowerCase() === nombre.toLowerCase() && l.id !== o.id)) return { error: 'Ya existe un laboratorio con ese nombre.' };
   if (!o.id) {
-    hoja('Laboratorios').appendRow([Utilities.getUuid().slice(0, 8), nombre, ubicacion, abre, cierra, diasAnticipacion, diasDisponibles.join(','), maxBloques]);
+    hoja('Laboratorios').appendRow([Utilities.getUuid().slice(0, 8), nombre, ubicacion, abre, cierra, diasAnticipacion, diasDisponibles.join(','), maxBloques, maxPersonas]);
     return { ok: 1 };
   }
   const l = labs.find(x => x.id === o.id);
@@ -463,7 +486,7 @@ function labGuardar(o) {
   if (reservasActivas.some(r => diasDisponibles.indexOf(diaSemana(r.fecha)) < 0)) {
     return { error: 'Los nuevos días no están disponibles para una reserva activa. Cancélala o conserva ese día habilitado.' };
   }
-  hoja('Laboratorios').getRange(l._fila, 2, 1, 7).setValues([[nombre, ubicacion, abre, cierra, diasAnticipacion, diasDisponibles.join(','), maxBloques]]);
+  hoja('Laboratorios').getRange(l._fila, 2, 1, 8).setValues([[nombre, ubicacion, abre, cierra, diasAnticipacion, diasDisponibles.join(','), maxBloques, maxPersonas]]);
   return { ok: 1 };
 }
 
@@ -526,8 +549,11 @@ function crearReservaLab(r) {
   if (!lab) return { error: 'Laboratorio no encontrado.' };
   if (nombre.length < 3) return { error: 'Escribe tu nombre completo.' };
   if (mat.length < 4) return { error: 'Escribe tu matrícula.' };
-  if (!Number.isSafeInteger(personas) || personas < 1) return { error: 'El número de personas debe ser un entero mayor que cero.' };
   const validos = leer('ImplementosLab').filter(i => i.lab === r.lab).map(i => i.nombre);
+  const maxPersonas = maxPersonasLaboratorio(lab);
+  if (!Number.isSafeInteger(personas) || personas < 1 || personas > maxPersonas) {
+    return { error: 'El número de personas debe ser un entero entre 1 y ' + maxPersonas + '.' };
+  }
   const fechas = [...new Set(Array.isArray(r.fechas) ? r.fechas : [])];
   if (!fechas.length || fechas.length > CFG.MAX_DIAS) return { error: 'Elige entre 1 y ' + CFG.MAX_DIAS + ' fechas.' };
   if (r.variosDias === false && fechas.length > 1) return { error: 'Solo se permite una fecha si no activas la reserva de varios días.' };

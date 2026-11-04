@@ -45,7 +45,7 @@ export function htmlDia() {
         if (x) {
           const n = filasHasta(x.fin, t, i);
           resto[equipo] = n - 1;
-          html += `<td class="o" rowspan="${n}" style="--col:${colorDe(equipo)}" data-id="${x.id}">` +
+          html += `<td class="o" rowspan="${n}" style="--col:${colorDe(equipo)}" data-id="${x.id}" data-e="${escapar(equipo)}">` +
             `<b>${etiquetaCalendario(x.nombre.split(' ')[0])}</b><small>${x.inicio}–${x.fin}</small></td>`;
         } else if (aviso || f + ' ' + aHora(t) < horaActual) {
           html += '<td class="x"></td>';

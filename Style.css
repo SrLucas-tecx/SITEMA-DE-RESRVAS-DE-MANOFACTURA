@@ -73,6 +73,13 @@ main { max-width: 1200px; margin: auto; padding: 16px; }
 .cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 17px; }
 .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .nav .p { margin-left: auto; }
+.calendario-ayuda {
+  margin: 0 0 14px; padding: 12px 16px; border: 1px solid #6f9c82; border-left: 5px solid var(--green);
+  border-radius: 10px; background: #e2f6ea; color: var(--dark); font-weight: 600;
+}
+.calendario-ayuda p { margin: 0; }
+.calendario-ayuda p + p { margin-top: 4px; }
+#cAlcanceAyuda { display: block; margin: 4px 0 0; }
 
 /* ===== Controles ===== */
 button, input, select {
@@ -96,6 +103,7 @@ button.on { background: var(--dark); color: #fff; border-color: var(--dark); pos
 label { display: block; font-size: 13px; color: var(--m); }
 label input, label select { width: 100%; margin-top: 3px; }
 .g { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.reserva-detalles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
 
 /* ===== Equipos: color + leyenda ===== */
 .chip { display: inline-block; width: 14px; height: 14px; border-radius: 4px; flex: none; }
@@ -162,7 +170,10 @@ td.l:hover { background: #c4f0d6; box-shadow: inset 0 0 0 2px var(--green); }
 td.l:hover::after { content: '+'; color: #00844a; font-weight: 800; font-size: 20px; }
 
 /* No disponible (ya pasó o falta anticipación): rayitas */
-td.x { background: repeating-linear-gradient(135deg, #fde8e8 0 6px, #f8d0d0 6px 12px); color: #8f2d2d; }
+td.x, .segs i.no, .seg.cerrado, td.m.nodisp {
+  background: repeating-linear-gradient(135deg, #fde8e8 0 6px, #f8d0d0 6px 12px);
+  color: #8f2d2d;
+}
 
 /* Reserva: un solo bloque de color con el nombre y la hora */
 td.o {
@@ -175,7 +186,7 @@ td.o[rowspan="1"] small { display: none; }
 
 /* Bloqueo (clase): franjas amarillas que cubren toda la fila */
 td.bq {
-  background: repeating-linear-gradient(135deg, #fff3cd 0 10px, #ffe9a8 10px 20px);
+  background: repeating-linear-gradient(135deg, #fff3cd 0 6px, #ffe9a8 6px 12px);
   color: #6b4e00; vertical-align: middle;
 }
 body.admin td.bq, body.admin td.o { cursor: pointer; }
@@ -196,6 +207,7 @@ td.pas { opacity: .45; }
 /* Mes: un cuadro por día */
 td.m { height: 100px; vertical-align: top; text-align: left; padding: 6px 8px; background: var(--celda); cursor: pointer; }
 td.m:hover { background: #e3f0fb; }
+td.m.nodisp:hover { background: repeating-linear-gradient(135deg, #fde8e8 0 6px, #f8d0d0 6px 12px); }
 td.m > b { display: inline-grid; place-items: center; min-width: 26px; height: 26px; border-radius: 50%; }
 td.m.hoyc > b { background: var(--green); color: var(--dark); }
 td.m.fuera { opacity: .4; }
@@ -255,6 +267,7 @@ li { margin: 4px 0; }
     gap: 7px;
   }
   #pantallaCalendario > .nav > * { min-width: 0; }
+  .calendario-ayuda { margin-bottom: 10px; padding: 10px 12px; }
   #pantallaCalendario > .nav #prev { grid-area: 1 / 1; }
   #pantallaCalendario > .nav #fecha { grid-area: 1 / 2 / 2 / 4; width: 100%; }
   #pantallaCalendario > .nav #next { grid-area: 1 / 4; }
@@ -344,10 +357,8 @@ td.m small.aut { color: #00844a; font-weight: 600; }
 
 /* ===== Disponibilidad: libre = verde, no disponible = rayas ===== */
 .segs i.libre { background: #bfeed3; }
-.segs i.no { background: repeating-linear-gradient(135deg, #fde8e8 0 4px, #f2bcbc 4px 8px); }
 td.m.disp { background: #e2f6ea; }
 td.m.disp:hover { background: #c4f0d6; }
-td.m.nodisp { background: repeating-linear-gradient(135deg, #fff1f1 0 6px, #fde0e0 6px 12px); }
 body td.bq[data-ir] { cursor: pointer; }
 .chip.libre { background: #bfeed3; border: 1px solid #7cc79b; }
 .chip.no { background: repeating-linear-gradient(135deg, #fde8e8 0 3px, #e8a9a9 3px 6px); }
@@ -367,6 +378,7 @@ body:not(.admin) #enlinea, body:not(.admin) #modo { display: none; }
 }
 
 @media (max-width: 420px) {
+  .reserva-detalles { grid-template-columns: 1fr; }
   body { font-size: 14px; }
   main { padding: 8px; }
   .top { gap: 8px; padding: 10px; }
@@ -424,7 +436,7 @@ body:not(.sec-labs) #seccionLabs { display: none; }
 
 td.ll { background: #e2f6ea; cursor: pointer; }                    /* libre */
 td.ll:hover { background: #c4f0d6; box-shadow: inset 0 0 0 2px var(--green); }
-td.lo { background: repeating-linear-gradient(135deg, #fff3cd 0 10px, #ffe9a8 10px 20px); color: #6b4e00; vertical-align: middle; }   /* ocupado */
+td.lo { background: repeating-linear-gradient(135deg, #fff3cd 0 6px, #ffe9a8 6px 12px); color: #6b4e00; vertical-align: middle; }   /* ocupado */
 td.lo b { display: block; line-height: 1.2; }
 td.lo small { display: block; font-size: 11px; opacity: .75; }
 body.admin td.lo { cursor: pointer; }

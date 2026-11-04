@@ -12,6 +12,7 @@ let equiposPorFecha = new Map();
 let fechasPersonalizadas = new Set();
 let reservaLab = null;
 let tipoCancelar = 'celda';
+let equipoCancelar = '';
 
 // "2026-10-28" -> "mié 28/10"
 const etiqueta = f => `${nombreDia(f)} ${diaDelMes(f)}/${f.slice(5, 7)}`;
@@ -46,7 +47,17 @@ function primerDiaLab(lab, fecha) {
 function dibujarFechas() {
   $('#fechasSel').innerHTML = fechasSel.map(f =>
     `<span class="fchip">${etiqueta(f)} <button type="button" data-q="${f}" title="Quitar">✕</button></span>`).join('');
+  $('#diaSeleccionadoLabel').textContent = fechasSel.length === 1 ? 'Día seleccionado' : 'Días seleccionados';
+  $('#diaSeleccionado').value = fechasSel.length === 1
+    ? `${etiqueta(fechasSel[0])}/${fechasSel[0].slice(0, 4)}`
+    : `${fechasSel.length} fechas`;
   dibujarEquiposPorFecha();
+}
+
+function actualizarMaxPersonas(maximo) {
+  $('#personas').max = String(maximo);
+  $('#personasLabel').textContent = `Número de personas (máximo ${maximo})`;
+  $('#personas').value = '';
 }
 
 function dibujarEquiposPorFecha() {
@@ -114,6 +125,7 @@ function dibujarEquipos(equipos = nombresEquipos().map(nombre => ({ nombre, colo
 // Con hora y equipo (clic en una celda libre) deja el formulario ya llenado
 export function abrirApartar(fecha, inicio, equipo) {
   reservaLab = null;
+  actualizarMaxPersonas(CFG.MAX_PERSONAS);
   $('#apartTitulo').textContent = 'Apartar';
   $('#autorizarTiempoExtendidoLabel').hidden = !estado.admin;
   $('#autorizarTiempoExtendido').checked = false;
@@ -146,6 +158,7 @@ export function abrirApartarLab(fecha, inicio, labId, nombreImplemento) {
   const lab = laboratorios().find(l => l.id === labId);
   if (!lab) return;
   reservaLab = lab;
+  actualizarMaxPersonas(reservaLab.maxPersonas ?? CFG.MAX_PERSONAS);
   $('#apartTitulo').textContent = `Apartar en ${lab.nombre}`;
   $('#autorizarTiempoExtendidoLabel').hidden = !estado.admin;
   $('#autorizarTiempoExtendido').checked = false;
@@ -178,12 +191,31 @@ export function abrirApartarLab(fecha, inicio, labId, nombreImplemento) {
   $('#modalApartar').showModal();
 }
 
-export function abrirCancelar(id, tipo = 'celda') {
+export function abrirCancelar(id, tipo = 'celda', equipo = '') {
   tipoCancelar = tipo;
+  equipoCancelar = equipo;
   estado.seleccionada = id;
   const x = (tipo === 'lab' ? reservasLabTodos() : estado.datos.res).find(y => y.id === id);
   const laboratorio = tipo === 'lab' ? laboratorios().find(l => l.id === x.lab) : null;
   $('#cinfo').textContent = `${x.fecha} · ${laboratorio ? laboratorio.nombre + ' · ' : ''}${x.nombre} · ${x.equipos.join(', ')} · ${x.inicio}–${x.fin}${x.personas ? ` · ${x.personas} personas` : ''}`;
+  const alcance = $('#cAlcance');
+  alcance.replaceChildren();
+  const completa = document.createElement('option');
+  completa.value = 'completa';
+  completa.textContent = 'Cancelar toda la reserva';
+  alcance.append(completa);
+  const puedeCancelarEquipo = equipo && x.equipos.length > 1 && x.equipos.includes(equipo);
+  if (puedeCancelarEquipo) {
+    const parcial = document.createElement('option');
+    parcial.value = 'material';
+    parcial.textContent = `Cancelar solo ${equipo}`;
+    alcance.append(parcial);
+    $('#cAlcanceAyuda').textContent = 'La reserva de los demás materiales continuará activa para esta fecha.';
+  } else {
+    $('#cAlcanceAyuda').textContent = x.equipos.length > 1
+      ? 'Para cancelar solo un material, presiona la celda de ese material en el calendario.'
+      : 'Esta reserva solo tiene un material; cancelarlo libera toda la reserva.';
+  }
   $('#cout').innerHTML = '';
   $('#modalCancelar').showModal();
 }
@@ -222,8 +254,9 @@ async function apartar(recargar) {
     return;
   }
   const personas = Number(r.personas);
-  if (!r.personas || !Number.isSafeInteger(personas) || personas < 1) {
-    $('#out').innerHTML = '<div class="msg e">Escribe un número entero de personas (mínimo 1).</div>';
+  const maxPersonas = reservaLab?.maxPersonas ?? CFG.MAX_PERSONAS;
+  if (!r.personas || !Number.isSafeInteger(personas) || personas < 1 || personas > maxPersonas) {
+    $('#out').innerHTML = `<div class="msg e">Escribe un número entero de personas entre 1 y ${maxPersonas}.</div>`;
     return;
   }
   r.personas = personas;
@@ -286,7 +319,11 @@ async function apartar(recargar) {
 async function cancelar(recargar) {
   let respuesta;
   try {
-    respuesta = await api.cancel({ id: estado.seleccionada, tipo: tipoCancelar, matricula: $('#cmat').value, codigo: $('#ccod').value });
+    respuesta = await api.cancel({
+      id: estado.seleccionada, tipo: tipoCancelar, matricula: $('#cmat').value,
+      codigo: $('#ccod').value, alcance: $('#cAlcance').value,
+      equipo: equipoCancelar
+    });
   } catch (e) {
     respuesta = { error: 'Sin conexión con el servidor.' };
   }
@@ -294,7 +331,9 @@ async function cancelar(recargar) {
   if (respuesta.error) {
     $('#cout').innerHTML = `<div class="msg e">${escapar(respuesta.error)}</div>`;
   } else {
-    $('#cout').innerHTML = `<div class="msg">${tipoCancelar === 'lab' ? 'Reserva cancelada. El implemento quedó disponible.' : 'Reserva cancelada. El horario quedó libre.'}</div>`;
+    $('#cout').innerHTML = `<div class="msg">${respuesta.parcial
+      ? `Se canceló el uso de ${escapar(equipoCancelar)}. Los demás materiales siguen reservados.`
+      : tipoCancelar === 'lab' ? 'Reserva cancelada. El implemento quedó disponible.' : 'Reserva cancelada. El horario quedó libre.'}</div>`;
     $('#ccod').value = '';
     recargar();
   }

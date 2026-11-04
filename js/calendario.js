@@ -57,7 +57,7 @@ export function iniciarCalendario({ alLibre, alOcupada, alDia, alBloqueo }) {
     const el = ev.target.closest('td, th');
     if (!el) return;
     if (el.dataset.t) alLibre(el.dataset.t, el.dataset.e);
-    else if (el.dataset.id) alOcupada(el.dataset.id);
+    else if (el.dataset.id) alOcupada(el.dataset.id, el.dataset.e);
     else if (el.dataset.bq) alBloqueo(...el.dataset.bq.split('|'));
     else if (el.dataset.ir) alDia(el.dataset.ir);
   };

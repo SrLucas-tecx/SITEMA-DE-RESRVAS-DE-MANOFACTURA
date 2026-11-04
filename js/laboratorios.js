@@ -49,7 +49,7 @@ export function iniciarLabs({ alLibre, alOcupado, alReserva, alDia }) {
     const el = ev.target.closest('[data-lab-item], [data-lab-res], [data-uso]') || ev.target.closest('td, th');
     if (!el) return;
     if (el.dataset.labT) alLibre(el.dataset.labF, el.dataset.labT, el.dataset.labItem);
-    else if (el.dataset.labRes) alReserva(el.dataset.labRes);
+    else if (el.dataset.labRes) alReserva(el.dataset.labRes, el.dataset.labItem);
     else if (el.dataset.uso) alOcupado(...el.dataset.uso.split('|'));
     else if (el.dataset.ir) alDia(el.dataset.ir);
   };

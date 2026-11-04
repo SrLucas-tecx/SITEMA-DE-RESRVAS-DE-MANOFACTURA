@@ -52,13 +52,18 @@
       <button class="p solo-celda" id="abrirApartar">+ Apartar</button>
     </div>
 
+    <aside class="calendario-ayuda" aria-live="polite">
+      <p id="ayudaCelda">Día: toca un espacio libre para reservar o uno reservado para cancelar. Semana/Mes: toca un día para ver sus horarios.</p>
+      <p id="ayudaLabs" hidden>Día: toca un implemento libre para reservar o uno reservado para cancelar. Semana/Mes: toca un día para ver sus horarios.</p>
+      <p>Al cancelar, elige entre toda la reserva o solo ese material.</p>
+    </aside>
+
     <div id="seccionCelda">
     <div class="layout">
       <!-- Calendario (día, semana o mes) -->
       <section class="card w">
         <div class="cab"><b id="tituloVista"></b></div>
         <div id="vista"></div>
-        <p class="sub" style="margin:8px 0 0">Verde = libre · rayas = no disponible · color = reservado. En la vista Día toca una celda verde para apartar o una de color para cancelar. En Semana y Mes toca un día para verlo por horas.</p>
       </section>
 
       <!-- Barra lateral -->
@@ -91,7 +96,6 @@
           <div class="cab"><b class="grande" id="tituloLabs"></b></div>
           <p class="sub" id="subLab"></p>
           <div id="vistaLab"></div>
-          <p class="sub" style="margin:8px 0 0">Verde = implemento libre · color = reservado · rayas amarillas = actividad del laboratorio · rayas grises = cerrado. En Día toca un implemento libre; en Semana toca un horario libre; en Mes toca un día para ver sus horarios.</p>
         </section>
 
         <!-- Lista de laboratorios -->
@@ -224,9 +228,14 @@
         <div class="eq" id="eq"></div>
         <div id="eqPorFecha"></div>
       </div>
-      <label>Número de personas
-        <input type="number" id="personas" min="1" step="1" inputmode="numeric" required>
-      </label>
+      <div class="reserva-detalles">
+        <label><span id="personasLabel">Número de personas (máximo 30)</span>
+          <input type="number" id="personas" min="1" max="30" step="1" inputmode="numeric" required>
+        </label>
+        <label><span id="diaSeleccionadoLabel">Día seleccionado</span>
+          <input id="diaSeleccionado" readonly aria-live="polite">
+        </label>
+      </div>
       <label>Otros (opcional: proyector, herramientas, qué vas a hacer…)
         <input id="otros" maxlength="200">
       </label>
@@ -252,6 +261,10 @@
   <dialog id="modalCancelar">
     <h2>Cancelar reserva</h2>
     <p id="cinfo" class="sub"></p>
+    <label id="cAlcanceContenedor">¿Qué deseas cancelar?
+      <select id="cAlcance"></select>
+      <span class="sub" id="cAlcanceAyuda"></span>
+    </label>
     <div class="g">
       <label>Matrícula <input id="cmat"></label>
       <label>Código de cancelación <input id="ccod"></label>
@@ -340,6 +353,7 @@
       <label>Cierra <select id="lCierra"></select></label>
       <label>Duración máxima por reserva (minutos) <input type="number" id="lMaxDuracion" min="30" max="720" step="30" required></label>
       <label>Días de anticipación para reservar <input type="number" id="lAnticipacion" min="0" max="365" step="1" value="5" required></label>
+      <label>Máximo de personas <input type="number" id="lMaxPersonas" min="1" max="30" step="1" value="30" required></label>
     </div>
     <fieldset class="dias-semana" id="lDias">
       <legend>Días disponibles para reservar</legend>
