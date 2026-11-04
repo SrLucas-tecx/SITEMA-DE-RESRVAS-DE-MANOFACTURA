@@ -200,6 +200,12 @@ td.m.fuera { opacity: .4; }
 td.m small { display: block; color: var(--m); font-size: 11px; }
 td.m small.bq { color: #8a6100; font-weight: 600; }
 .chips { display: flex; gap: 3px; flex-wrap: wrap; margin: 4px 0; }
+.texto-calendario {
+  display: inline-block; max-width: 100%; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; vertical-align: bottom; white-space: nowrap;
+}
+.tabla.dia th .texto-calendario { display: block; }
+.texto-celular { display: none; }
 
 /* ===== Popups ===== */
 dialog {
@@ -271,6 +277,8 @@ li { margin: 4px 0; }
   .tabla th { padding: 6px 2px; }
   .tabla th:first-child, .tabla td.h { width: 44px; }
   td.m { height: 64px; padding: 3px; }
+  .texto-pc { display: none; }
+  .texto-celular { display: inline; }
 
   dialog {
     padding: 16px;

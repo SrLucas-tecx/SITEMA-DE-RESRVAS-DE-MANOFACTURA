@@ -48,6 +48,17 @@ export function escapar(texto) {
   return String(texto).replace(/[&<>"]/g, c => mapa[c]);
 }
 
+export function etiquetaCalendario(texto) {
+  const valor = String(texto);
+  const caracteres = Array.from(valor);
+  const cortar = max => escapar(caracteres.length > max
+    ? caracteres.slice(0, max - 1).join('').trimEnd() + '…'
+    : valor);
+  const completo = escapar(valor);
+  return `<span class="texto-calendario" title="${completo}" aria-label="${completo}">` +
+    `<span class="texto-pc">${cortar(20)}</span><span class="texto-celular">${cortar(12)}</span></span>`;
+}
+
 /* ---------- Calendario: semanas, meses y nombres ---------- */
 const DIAS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];

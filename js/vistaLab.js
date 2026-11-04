@@ -1,6 +1,6 @@
 /* Calendario PROPIO de un laboratorio: vistas día, semana y mes.
    Verde = libre · rayas amarillas = ocupado · rayas grises = cerrado */
-import { aHora, aMinutos, hoy, sumarDias, inicioSemana, nombreDia, nombresDias, diaDelMes, escapar } from './utils.js';
+import { aHora, aMinutos, hoy, sumarDias, inicioSemana, nombreDia, nombresDias, diaDelMes, escapar, etiquetaCalendario } from './utils.js';
 import { estado, implementosDeLab } from './estado.js';
 import { bloquesLab } from './horarioLab.js';
 import { bloquesDeLab } from './labDatos.js';
@@ -14,7 +14,7 @@ export function htmlDiaLab(lab) {
   const resto = items.map(() => 0);
   let restoUso = 0;
   let html = '<table class="tabla dia"><thead><tr><th></th>' + items.map(item =>
-    `<th style="--col:${item.color}"><i class="chip" style="background:${item.color}"></i>${escapar(item.nombre)}</th>`).join('') + '</tr></thead><tbody>';
+    `<th style="--col:${item.color}"><i class="chip" style="background:${item.color}"></i>${etiquetaCalendario(item.nombre)}</th>`).join('') + '</tr></thead><tbody>';
   for (let i = 0; i < bloquesLab.length; i++) {
     const t = bloquesLab[i];
     html += `<tr class="${claseFila(t)}"><td class="h">${aHora(t)}</td>`;
@@ -25,7 +25,7 @@ export function htmlDiaLab(lab) {
       const filas = Math.min(bloquesLab.length - i, Math.max(1, (aMinutos(primero.uso.fin) - t) / 30));
       restoUso = filas - 1;
       html += `<td class="lo" colspan="${items.length}" rowspan="${filas}" data-uso="${f}|${primero.uso.inicio}|${primero.uso.fin}">` +
-        `<b>${escapar(primero.motivo)}</b><small>${primero.uso.inicio}–${primero.uso.fin}</small></td>`;
+        `<b>${etiquetaCalendario(primero.motivo)}</b><small>${primero.uso.inicio}–${primero.uso.fin}</small></td>`;
     } else {
       items.forEach((item, k) => {
         if (resto[k] > 0) { resto[k]--; return; }
@@ -36,7 +36,7 @@ export function htmlDiaLab(lab) {
           const filas = Math.max(1, (aMinutos(x.reserva.fin) - t) / 30);
           resto[k] = filas - 1;
           html += `<td class="o" rowspan="${filas}" style="--col:${item.color}" data-lab-res="${escapar(x.reserva.id)}">` +
-            `<b>${escapar(x.reserva.nombre.split(' ')[0])}</b><small>${x.reserva.inicio}–${x.reserva.fin}</small>` +
+            `<b>${etiquetaCalendario(x.reserva.nombre.split(' ')[0])}</b><small>${x.reserva.inicio}–${x.reserva.fin}</small>` +
             (x.reserva.personas ? `<small>${escapar(String(x.reserva.personas))} personas</small>` : '') + '</td>';
         } else {
           html += '<td class="x"></td>';
@@ -56,7 +56,7 @@ export function htmlSemanaLab(lab) {
   const dias = Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i));
   const porDia = dias.map(d => items.map(item => bloquesDeLab(lab, d, item)));
   let html = '<div class="lab-legend">' + items.map(item =>
-    `<span><i class="chip" style="background:${item.color}"></i>${escapar(item.nombre)}</span>`).join('') +
+    `<span><i class="chip" style="background:${item.color}"></i>${etiquetaCalendario(item.nombre)}</span>`).join('') +
     '</div><table class="tabla semana lab-semana"><tr><th></th>' + dias.map(d =>
     `<th class="${d === hoyStr ? 'hoyc' : ''}" data-ir="${d}"><span>${nombreDia(d)}</span><b>${diaDelMes(d)}</b></th>`).join('') + '</tr>';
 
@@ -66,7 +66,7 @@ export function htmlSemanaLab(lab) {
     dias.forEach((d, diaIndex) => {
       const uso = porDia[diaIndex].map(slots => slots[fila]).find(slot => slot.uso);
       if (uso) {
-        html += `<td class="s"><div class="lab-activity" data-uso="${d}|${uso.uso.inicio}|${uso.uso.fin}" title="${escapar(uso.motivo)}">${escapar(uso.motivo || 'Ocupado')}</div></td>`;
+        html += `<td class="s"><div class="lab-activity" data-uso="${d}|${uso.uso.inicio}|${uso.uso.fin}" title="${escapar(uso.motivo)}">${etiquetaCalendario(uso.motivo || 'Ocupado')}</div></td>`;
         return;
       }
       const segmentos = items.map((item, itemIndex) => {

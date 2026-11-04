@@ -1,5 +1,5 @@
 /* Calendario: elige la vista (día / semana / mes) y dibuja leyenda y lista del día */
-import { $, escapar, nombreDia, nombreMes, inicioSemana, sumarDias } from './utils.js';
+import { $, escapar, etiquetaCalendario, nombreDia, nombreMes, inicioSemana, sumarDias } from './utils.js';
 import { estado, reservasDe, listaEquipos, colorDe } from './estado.js';
 import { dibujarLabs } from './laboratorios.js';
 import { htmlDia } from './vistaDia.js';
@@ -11,7 +11,7 @@ const VISTAS = { dia: htmlDia, semana: htmlSemana, mes: htmlMes };
 // Leyenda: cuadrito de color + nombre de cada equipo
 export function dibujarLeyenda() {
   $('#leyenda').innerHTML = listaEquipos().map(e =>
-    `<span class="item"><i class="chip" style="background:${colorDe(e.nombre)}"></i><b>${escapar(e.nombre)}</b></span>`).join('')
+    `<span class="item"><i class="chip" style="background:${colorDe(e.nombre)}"></i><b>${etiquetaCalendario(e.nombre)}</b></span>`).join('')
     || '<span class="sub">Sin material registrado.</span>';
 }
 
