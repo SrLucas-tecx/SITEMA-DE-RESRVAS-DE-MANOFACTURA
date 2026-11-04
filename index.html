@@ -136,11 +136,12 @@
       </article>
       <article class="card" id="configCelda">
         <div class="cab"><b>Configuración de la Celda de Manufactura</b></div>
-        <p class="sub">Define el nombre, el horario de atención y con cuántos días de anticipación se puede reservar.</p>
+        <p class="sub">Define el nombre, el horario de atención, la duración máxima de las reservas y con cuántos días de anticipación se puede reservar.</p>
         <div class="g">
           <label>Nombre de la celda <input id="celdaNombre" maxlength="30" required></label>
           <label>Abre <input type="time" id="celdaAbre" min="00:00" max="23:30" step="1800" required></label>
           <label>Cierra <input type="time" id="celdaCierra" min="00:30" max="23:30" step="1800" required></label>
+          <label>Duración máxima por reserva (minutos) <input type="number" id="celdaMaxDuracion" min="30" max="720" step="30" required></label>
           <label>Días de anticipación <input type="number" id="celdaAnticipacion" min="0" max="365" step="1" required></label>
         </div>
         <div id="celdaConfigOut"></div>
@@ -208,6 +209,10 @@
         <label>Hora de inicio <select id="inicio"></select></label>
         <label>Duración <select id="dur"></select></label>
       </div>
+      <label class="autorizar-tiempo" id="autorizarTiempoExtendidoLabel" hidden>
+        <input type="checkbox" id="autorizarTiempoExtendido">
+        Autorizar esta reserva por más tiempo que el máximo configurado
+      </label>
       <div class="dias">
         <label class="switch"><input type="checkbox" id="variosDias"> ¿Reservar varios días?</label>
         <div id="controlesVariosDias" hidden>
@@ -286,11 +291,23 @@
     <h2>Bloquear horario</h2>
     <p class="sub">Para clases u otros usos. Nadie podrá apartar ese horario.</p>
     <div class="g">
-      <label>Fecha <input type="date" id="bFecha"></label>
-      <label>Repetir cada semana hasta (opcional) <input type="date" id="bHasta"></label>
+      <label>Fecha de inicio <input type="date" id="bFecha"></label>
+      <label>Número de semanas <input type="number" id="bSemanas" min="1" max="52" step="1" value="1"></label>
       <label>Desde <select id="bIni"></select></label>
       <label>Hasta <select id="bFin"></select></label>
+      <fieldset class="dias-semana bloqueo-dias" id="bDias">
+        <legend>Días que se bloquearán cada semana</legend>
+        <label><input type="checkbox" value="1"> Lunes</label>
+        <label><input type="checkbox" value="2"> Martes</label>
+        <label><input type="checkbox" value="3"> Miércoles</label>
+        <label><input type="checkbox" value="4"> Jueves</label>
+        <label><input type="checkbox" value="5"> Viernes</label>
+        <label><input type="checkbox" value="6"> Sábado</label>
+        <label><input type="checkbox" value="0"> Domingo</label>
+        <label class="bloqueo-todos"><input type="checkbox" id="bTodos"> Todos los días</label>
+      </fieldset>
     </div>
+    <p class="sub">La primera semana empieza en la fecha elegida. Máximo 52 semanas.</p>
     <label style="margin-top:10px">Motivo <input id="bMotivo" maxlength="60" placeholder="Clase, mantenimiento…"></label>
     <div id="bout"></div>
     <div class="acciones">
@@ -321,6 +338,7 @@
       <label>Ubicación (opcional) <input id="lUbicacion" maxlength="60" placeholder="Edificio, piso…"></label>
       <label>Abre <select id="lAbre"></select></label>
       <label>Cierra <select id="lCierra"></select></label>
+      <label>Duración máxima por reserva (minutos) <input type="number" id="lMaxDuracion" min="30" max="720" step="30" required></label>
       <label>Días de anticipación para reservar <input type="number" id="lAnticipacion" min="0" max="365" step="1" value="5" required></label>
     </div>
     <fieldset class="dias-semana" id="lDias">
@@ -350,8 +368,20 @@
       <label>Fecha <input type="date" id="uFecha"></label>
       <label>Desde <select id="uIni"></select></label>
       <label>Hasta <select id="uFin"></select></label>
-      <label>Repetir cada semana hasta (opcional) <input type="date" id="uHasta"></label>
+      <label>Número de semanas <input type="number" id="uSemanas" min="1" max="52" step="1" value="1"></label>
     </div>
+    <fieldset class="dias-semana bloqueo-dias" id="uDias">
+      <legend>Días que se bloquearán cada semana</legend>
+      <label><input type="checkbox" value="1"> Lunes</label>
+      <label><input type="checkbox" value="2"> Martes</label>
+      <label><input type="checkbox" value="3"> Miércoles</label>
+      <label><input type="checkbox" value="4"> Jueves</label>
+      <label><input type="checkbox" value="5"> Viernes</label>
+      <label><input type="checkbox" value="6"> Sábado</label>
+      <label><input type="checkbox" value="0"> Domingo</label>
+      <label class="bloqueo-todos"><input type="checkbox" id="uTodos"> Todos los días</label>
+    </fieldset>
+    <p class="sub">La primera semana empieza en la fecha elegida. Máximo 52 semanas.</p>
     <label style="margin-top:10px">Motivo <input id="uMotivo" maxlength="60" placeholder="Clase, práctica…"></label>
     <div id="uout"></div>
     <div class="acciones">

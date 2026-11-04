@@ -35,6 +35,12 @@ const diasLabValidos = dias => Array.isArray(dias) && dias.length > 0 &&
   dias.every(dia => Number.isInteger(dia) && dia >= 0 && dia <= 6) &&
   new Set(dias).size === dias.length;
 const diasLab = lab => diasLabValidos(lab.diasDisponibles) ? lab.diasDisponibles : CFG.DIAS_LAB_DEFAULT;
+const maxBloquesLab = lab => {
+  const disponibles = Math.floor((aMinutos(lab.cierra) - aMinutos(lab.abre)) / 30);
+  const configurado = Number.isInteger(Number(lab.maxBloques)) && Number(lab.maxBloques) > 0
+    ? Number(lab.maxBloques) : CFG.MAX_BLOQUES;
+  return Math.max(1, Math.min(configurado, disponibles));
+};
 const equiposParaFecha = (r, fecha) => {
   if (!Array.isArray(r.equiposPorFecha)) return Array.isArray(r.equipos) ? r.equipos : [];
   return r.equiposPorFecha.find(dia => dia.fecha === fecha)?.equipos || [];
@@ -43,7 +49,7 @@ const numeroPersonas = valor => valor === undefined || valor === null
   ? 1 : Number.isSafeInteger(Number(valor)) && Number(valor) >= 1 ? Number(valor) : null;
 const configuracionCeldaLocal = () => ({
   nombre: CFG.NOMBRE_CELDA, abre: CFG.HORA_INI, cierra: CFG.HORA_FIN,
-  diasAnticipacion: CFG.DIAS_ANTICIPACION, ...leerLS(LSC, {})
+  diasAnticipacion: CFG.DIAS_ANTICIPACION, maxBloques: CFG.MAX_BLOQUES_CELDA, ...leerLS(LSC, {})
 });
 const horaValida = hora => /^\d{2}:\d{2}$/.test(hora) && aMinutos(hora) >= 0 &&
   aMinutos(hora) < 1440 && aMinutos(hora) % 30 === 0;
@@ -57,7 +63,7 @@ const Local = {
     return {
       res, blq: bloqueosTodos(), equipos: equiposLocal(), autorizados: leerLS(LSA, []),
       configuracionCelda: configuracionCeldaLocal(),
-      laboratorios: leerLS(LSL, []).map(l => ({ ...l, diasDisponibles: diasLab(l) })),
+      laboratorios: leerLS(LSL, []).map(l => ({ ...l, maxBloques: maxBloquesLab(l), diasDisponibles: diasLab(l) })),
       usoLab: leerLS(LSU, []), implementosLab: implementosLocal(),
       resLab: reservasLabLocal().map(({ matricula, pin, ...publico }) => publico)
     };
@@ -65,6 +71,9 @@ const Local = {
 
   async create(r) {
     const todas = cargarLocal();
+    const duracionAutorizada = r.autorizarDuracion === true && esAdminLocal(r);
+    if (r.autorizarDuracion === true && !duracionAutorizada) return NO_ADMIN;
+    const maxBloques = Number(configuracionCeldaLocal().maxBloques) || CFG.MAX_BLOQUES_CELDA;
     const personas = numeroPersonas(r.personas);
     if (personas === null) return { error: 'El número de personas debe ser un entero mayor que cero.' };
     if (!Array.isArray(r.fechas) || !r.fechas.length || r.fechas.length > CFG.MAX_DIAS) {
@@ -81,13 +90,15 @@ const Local = {
     }
     // Se validan todos los días antes de guardar ninguno
     for (const f of r.fechas) {
-      const error = validar({ ...r, fecha: f, equipos: equiposParaFecha(r, f) }, todas, bloqueosTodos(), leerLS(LSA, []));
+      const error = validar({ ...r, fecha: f, equipos: equiposParaFecha(r, f) }, todas, bloqueosTodos(), leerLS(LSA, []), {
+        maxBloques, duracionAutorizada
+      });
       if (error) return { error: f + ': ' + error };
     }
 
     const pin = String(1000 + Math.floor(Math.random() * 9000));   // un código para todos los días
     r.fechas.forEach((f, i) => {
-      const { fechas, equiposPorFecha, variosDias, ...resto } = r;
+      const { fechas, equiposPorFecha, variosDias, admin, autorizarDuracion, ...resto } = r;
       todas.push({ ...resto, equipos: equiposParaFecha(r, f), personas, fecha: f, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
     });
     guardarLocal(todas);
@@ -124,6 +135,13 @@ const Local = {
 
   async bloquear(o) {
     if (!esAdminLocal(o)) return NO_ADMIN;
+    if (!Array.isArray(o.fechas) || !o.fechas.length || o.fechas.length > 365) {
+      return { error: 'Elige entre 1 y 365 fechas para bloquear.' };
+    }
+    if (o.fechas.some(fecha => !/^\d{4}-\d{2}-\d{2}$/.test(fecha))) return { error: 'Fecha inválida.' };
+    if (!horaValida(o.inicio) || !horaValida(o.fin) || aMinutos(o.fin) <= aMinutos(o.inicio)) {
+      return { error: 'Horario inválido.' };
+    }
     const lista = bloqueosLocal();
     o.fechas.forEach(fecha => lista.push({ fecha, inicio: o.inicio, fin: o.fin, motivo: o.motivo }));
     localStorage.setItem(LSB, JSON.stringify(lista));
@@ -188,6 +206,7 @@ const Local = {
     if (!esAdminLocal(o)) return NO_ADMIN;
     const nombre = String(o.nombre || '').trim();
     const diasAnticipacion = Number(o.diasAnticipacion);
+    const maxBloques = Number(o.maxBloques);
     if (!NOMBRE_EQUIPO.test(nombre)) return { error: 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).' };
     if (!horaValida(o.abre) || !horaValida(o.cierra) || aMinutos(o.cierra) > 1410 || aMinutos(o.cierra) <= aMinutos(o.abre)) {
       return { error: 'Horario inválido: usa horas en intervalos de 30 minutos y asegúrate de que el cierre sea posterior a la apertura.' };
@@ -196,11 +215,16 @@ const Local = {
         !Number.isInteger(diasAnticipacion) || diasAnticipacion < 0 || diasAnticipacion > 365) {
       return { error: 'La anticipación debe ser un número entero entre 0 y 365 días.' };
     }
+    if (o.maxBloques === '' || o.maxBloques === null || o.maxBloques === undefined ||
+        !Number.isInteger(maxBloques) || maxBloques < 1 || maxBloques > 48 ||
+        maxBloques * 30 > aMinutos(o.cierra) - aMinutos(o.abre)) {
+      return { error: 'La duración máxima debe ser de al menos 30 minutos y no superar el horario disponible de la celda.' };
+    }
     if (cargarLocal().some(r => r.estado === 'Activa' && r.fecha >= hoy() &&
         (aMinutos(r.inicio) < aMinutos(o.abre) || aMinutos(r.fin) > aMinutos(o.cierra)))) {
       return { error: 'El horario nuevo dejaría reservas activas fuera de horario. Cancélalas o ajusta el horario antes.' };
     }
-    localStorage.setItem(LSC, JSON.stringify({ nombre, abre: o.abre, cierra: o.cierra, diasAnticipacion }));
+    localStorage.setItem(LSC, JSON.stringify({ nombre, abre: o.abre, cierra: o.cierra, diasAnticipacion, maxBloques }));
     return { ok: 1 };
   },
 
@@ -216,16 +240,23 @@ const Local = {
     const diasAnticipacion = Number(valorAnticipacion);
     const diasDisponibles = nuevo && (o.diasDisponibles === undefined || o.diasDisponibles === null)
       ? CFG.DIAS_LAB_DEFAULT.slice() : o.diasDisponibles;
+    const valorMaxBloques = nuevo && (o.maxBloques === undefined || o.maxBloques === null)
+      ? CFG.MAX_BLOQUES : o.maxBloques;
     if (!NOMBRE_EQUIPO.test(nombre)) return { error: 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).' };
     if (!horaLabValida(abre) || !horaLabValida(cierra) || aMinutos(abre) >= 1440 ||
         aMinutos(cierra) <= aMinutos(abre)) return { error: 'Horario de apertura inválido.' };
+    const maxBloques = Number(valorMaxBloques);
     if (valorAnticipacion === '' || valorAnticipacion === null || valorAnticipacion === undefined ||
         !Number.isInteger(diasAnticipacion) || diasAnticipacion < 0 || diasAnticipacion > 365) {
       return { error: 'La anticipación debe ser un número entero entre 0 y 365 días.' };
     }
+    if (valorMaxBloques === '' || !Number.isInteger(maxBloques) || maxBloques < 1 || maxBloques > 48 ||
+        maxBloques * 30 > aMinutos(cierra) - aMinutos(abre)) {
+      return { error: 'La duración máxima debe ser de al menos 30 minutos y no superar el horario disponible del laboratorio.' };
+    }
     if (!diasLabValidos(diasDisponibles)) return { error: 'Selecciona al menos un día disponible.' };
     if (lista.some(l => l.nombre.toLowerCase() === nombre.toLowerCase() && l.id !== o.id)) return { error: 'Ya existe un laboratorio con ese nombre.' };
-    const datos = { nombre, ubicacion: String(o.ubicacion || '').trim().slice(0, 60), abre, cierra, diasAnticipacion, diasDisponibles };
+    const datos = { nombre, ubicacion: String(o.ubicacion || '').trim().slice(0, 60), abre, cierra, diasAnticipacion, diasDisponibles, maxBloques };
     const i = lista.findIndex(l => l.id === o.id);
     if (o.id && i < 0) return { error: 'Laboratorio no encontrado.' };
     const reservasActivas = reservasLabLocal().filter(r =>
@@ -287,6 +318,8 @@ const Local = {
   },
 
   async createLab(r) {
+    const duracionAutorizada = r.autorizarDuracion === true && esAdminLocal(r);
+    if (r.autorizarDuracion === true && !duracionAutorizada) return NO_ADMIN;
     const personas = numeroPersonas(r.personas);
     if (personas === null) return { error: 'El número de personas debe ser un entero mayor que cero.' };
     const lab = leerLS(LSL, []).find(l => l.id === r.lab);
@@ -299,7 +332,11 @@ const Local = {
     if (r.fechas.some(f => !/^\d{4}-\d{2}-\d{2}$/.test(f))) return { error: 'Fecha inválida.' };
     if (new Set(r.fechas.map(f => f.slice(0, 7))).size > 1) return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
     const inicio = aMinutos(r.inicio), fin = aMinutos(r.fin);
-    if (inicio % 30 !== 0 || fin % 30 !== 0 || fin - inicio < 30 || fin - inicio > 30 * CFG.MAX_BLOQUES) return { error: `Duración máxima: ${CFG.MAX_BLOQUES * 30} minutos.` };
+    const maxBloques = maxBloquesLab(lab);
+    if (inicio % 30 !== 0 || fin % 30 !== 0 || fin - inicio < 30 ||
+        (fin - inicio > 30 * maxBloques && !duracionAutorizada)) {
+      return { error: `Duración máxima: ${maxBloques * 30} minutos. El administrador debe autorizar más tiempo.` };
+    }
     if (inicio < aMinutos(lab.abre) || fin > aMinutos(lab.cierra)) return { error: 'Fuera del horario de apertura del laboratorio.' };
     const autorizados = leerLS(LSA, []);
     const reservas = reservasLabLocal();
@@ -323,7 +360,7 @@ const Local = {
     }
     const pin = String(1000 + Math.floor(Math.random() * 9000));
     r.fechas.forEach((fecha, i) => {
-      const { fechas, equiposPorFecha, variosDias, ...resto } = r;
+      const { fechas, equiposPorFecha, variosDias, admin, autorizarDuracion, ...resto } = r;
       reservas.push({ ...resto, equipos: equiposParaFecha(r, fecha), personas, fecha, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
     });
     localStorage.setItem(LSRL, JSON.stringify(reservas));
@@ -334,7 +371,7 @@ const Local = {
     if (!esAdminLocal(o)) return NO_ADMIN;
     const lab = leerLS(LSL, []).find(l => l.id === o.lab);
     if (!lab) return { error: 'Laboratorio no encontrado.' };
-    if (!Array.isArray(o.fechas) || !o.fechas.length || o.fechas.length > 60) return { error: 'Elige entre 1 y 60 fechas.' };
+    if (!Array.isArray(o.fechas) || !o.fechas.length || o.fechas.length > 365) return { error: 'Elige entre 1 y 365 fechas para bloquear.' };
     if (!/^\d{2}:\d{2}$/.test(o.inicio) || !/^\d{2}:\d{2}$/.test(o.fin) || aMinutos(o.fin) <= aMinutos(o.inicio)) return { error: 'Horario inválido.' };
     if (aMinutos(o.inicio) < aMinutos(lab.abre) || aMinutos(o.fin) > aMinutos(lab.cierra)) return { error: 'Fuera del horario de apertura del laboratorio.' };
     if (o.fechas.some(fecha => !/^\d{4}-\d{2}-\d{2}$/.test(fecha))) return { error: 'Fecha inválida.' };

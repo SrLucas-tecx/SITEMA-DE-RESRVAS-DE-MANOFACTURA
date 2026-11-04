@@ -10,7 +10,7 @@ export const NOMBRE_EQUIPO = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 +\-\/().]{
 
 // Devuelve un texto con el error, o null si la reserva es válida.
 // autorizados = sábados o domingos que el administrador permitió: [{ fecha, motivo }]
-export function validar(r, reservas, bloqueos, autorizados = []) {
+export function validar(r, reservas, bloqueos, autorizados = [], opciones = {}) {
   if (!r.nombre || r.nombre.trim().length < 3) return 'Escribe tu nombre completo.';
   if (!r.matricula || r.matricula.trim().length < 4) return 'Escribe tu matrícula.';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(r.fecha)) return 'Elige una fecha.';
@@ -19,8 +19,9 @@ export function validar(r, reservas, bloqueos, autorizados = []) {
   const inicio = aMinutos(r.inicio);
   const fin = aMinutos(r.fin);
 
-  if (fin - inicio < 30 || fin - inicio > 30 * CFG.MAX_BLOQUES) {
-    return 'Duración máxima: ' + CFG.MAX_BLOQUES * 30 + ' minutos.';
+  const maxBloques = opciones.maxBloques || CFG.MAX_BLOQUES_CELDA;
+  if (fin - inicio < 30 || (fin - inicio > 30 * maxBloques && !opciones.duracionAutorizada)) {
+    return 'Duración máxima: ' + maxBloques * 30 + ' minutos. El administrador debe autorizar más tiempo.';
   }
   if (inicio < aMinutos(CFG.HORA_INI) || fin > aMinutos(CFG.HORA_FIN)) {
     return 'Fuera del horario de la celda.';

@@ -6,12 +6,12 @@
 const CFG = {
   HORA_INI: '08:00', HORA_FIN: '20:00',   // igual que en el HTML
   NOMBRE_CELDA: 'Celda de Manufactura',
-  MAX_BLOQUES: 3,                          // 3 bloques de 30 min = 1 h 30 min
+  MAX_BLOQUES: 3,                          // duración máxima inicial: 1 h 30 min
   MAX_DIAS: 31,                            // fechas máximas por reserva, siempre del mismo mes
   DIAS_ANTICIPACION: 5,                    // hay que apartar con al menos 5 días de anticipación
   DIAS_LAB_DEFAULT: [1, 2, 3, 4, 5],      // lunes a viernes
   ADMIN: 'maestro123',                     // código del maestro: CÁMBIALO
-  VERSION: 'v14',                          // sube este número cuando cambies el script (la web lo compara)
+  VERSION: 'v18',                          // sube este número cuando cambies el script (la web lo compara)
   DIAS_HISTORIAL: 30                       // reservas más viejas pasan a "Historial"
 };
 
@@ -25,7 +25,7 @@ const HOJAS = {
   Bloqueos: ['fecha', 'inicio', 'fin', 'motivo'],
   Equipos: ['nombre', 'color'],
   Autorizados: ['fecha', 'motivo'],         // sábados y domingos que el administrador permitió
-  Laboratorios: ['id', 'nombre', 'ubicacion', 'abre', 'cierra', 'diasAnticipacion', 'diasDisponibles'],
+  Laboratorios: ['id', 'nombre', 'ubicacion', 'abre', 'cierra', 'diasAnticipacion', 'diasDisponibles', 'maxBloques'],
   ConfiguracionCelda: ['clave', 'valor'],
   UsoLab: ['lab', 'fecha', 'inicio', 'fin', 'motivo'],   // ratos en que un laboratorio está ocupado
   ImplementosLab: ['id', 'lab', 'nombre', 'color'],
@@ -68,6 +68,13 @@ function diasLaboratorio(valor) {
   const dias = texto.split(',').map(Number).filter((d, i, todos) =>
     Number.isInteger(d) && d >= 0 && d <= 6 && todos.indexOf(d) === i);
   return dias.length ? dias : CFG.DIAS_LAB_DEFAULT;
+}
+function maxBloquesLaboratorio(lab) {
+  const disponibles = Math.floor((mins(lab.cierra) - mins(lab.abre)) / 30);
+  const valor = Number(lab.maxBloques);
+  const configurado = lab.maxBloques !== '' && lab.maxBloques !== null &&
+    lab.maxBloques !== undefined && Number.isInteger(valor) && valor > 0 ? valor : CFG.MAX_BLOQUES;
+  return Math.max(1, Math.min(configurado, disponibles));
 }
 
 // Devuelve la hoja; si falta (por ejemplo "Equipos" en una hoja anterior) se crea sola
@@ -115,7 +122,7 @@ const salida = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeTy
 function leerConfiguracionCelda() {
   const config = {
     nombre: CFG.NOMBRE_CELDA, abre: CFG.HORA_INI, cierra: CFG.HORA_FIN,
-    diasAnticipacion: CFG.DIAS_ANTICIPACION
+    diasAnticipacion: CFG.DIAS_ANTICIPACION, maxBloques: CFG.MAX_BLOQUES
   };
   leer('ConfiguracionCelda').forEach(({ clave, valor }) => {
     if (clave === 'nombre' && String(valor || '').trim()) config.nombre = String(valor).trim();
@@ -123,11 +130,15 @@ function leerConfiguracionCelda() {
         mins(valor) >= 0 && mins(valor) < 1440 && mins(valor) % 30 === 0) config[clave] = valor;
     else if (clave === 'diasAnticipacion' && valor !== '' && Number.isInteger(Number(valor)) &&
         Number(valor) >= 0 && Number(valor) <= 365) config.diasAnticipacion = Number(valor);
+    else if (clave === 'maxBloques' && valor !== '' && Number.isInteger(Number(valor)) &&
+        Number(valor) >= 1 && Number(valor) <= 48) config.maxBloques = Number(valor);
   });
   if (mins(config.cierra) <= mins(config.abre) || mins(config.cierra) > 1410) {
     config.abre = CFG.HORA_INI;
     config.cierra = CFG.HORA_FIN;
   }
+  const disponibles = Math.floor((mins(config.cierra) - mins(config.abre)) / 30);
+  if (config.maxBloques > disponibles) config.maxBloques = Math.min(CFG.MAX_BLOQUES, disponibles);
   return config;
 }
 
@@ -152,6 +163,7 @@ function doGet() {
         l.diasAnticipacion !== '' && l.diasAnticipacion !== null && l.diasAnticipacion !== undefined
         ? Number(l.diasAnticipacion) : CFG.DIAS_ANTICIPACION,
       diasDisponibles: diasLaboratorio(l.diasDisponibles)
+      ,maxBloques: maxBloquesLaboratorio(l)
     }));
   const usoLab = leer('UsoLab').filter(u => u.fecha && u.fecha >= desde)
     .map(u => ({ lab: u.lab, fecha: u.fecha, inicio: u.inicio, fin: u.fin, motivo: u.motivo || '' }));
@@ -178,6 +190,8 @@ function doPost(e) {
 
 function crear(r) {
   const config = leerConfiguracionCelda();
+  const duracionAutorizada = r.autorizarDuracion === true;
+  if (duracionAutorizada && !adminOk(r)) return NO_ADMIN;
   const nombre = String(r.nombre || '').trim(), mat = String(r.matricula || '').trim();
   const personas = r.personas === undefined || r.personas === null ? 1 : Number(r.personas);
   const fechas = [...new Set(Array.isArray(r.fechas) ? r.fechas : [r.fecha])];   // uno o varios días
@@ -191,7 +205,10 @@ function crear(r) {
   if (new Set(fechas.map(dia => dia.slice(0, 7))).size > 1) return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
   if (!/^\d{2}:\d{2}$/.test(r.inicio) || !/^\d{2}:\d{2}$/.test(r.fin)) return { error: 'Hora inválida.' };
   const i = mins(r.inicio), f = mins(r.fin);
-  if (i % 30 !== 0 || f % 30 !== 0 || (f - i) < 30 || (f - i) > (30 * CFG.MAX_BLOQUES)) return { error: 'Duración máxima: ' + (CFG.MAX_BLOQUES * 30) + ' minutos.' };
+  if (i % 30 !== 0 || f % 30 !== 0 || (f - i) < 30 ||
+      ((f - i) > (30 * config.maxBloques) && !duracionAutorizada)) {
+    return { error: 'Duración máxima: ' + (config.maxBloques * 30) + ' minutos. El administrador debe autorizar más tiempo.' };
+  }
   if (i < mins(config.abre) || f > mins(config.cierra)) return { error: 'Fuera del horario de la celda.' };
 
   // Se validan todos los días antes de guardar ninguno
@@ -291,7 +308,7 @@ function borrar(o) {
 function bloquear(o) {
   if (!adminOk(o)) return NO_ADMIN;
   const fechas = [...new Set(Array.isArray(o.fechas) ? o.fechas : [])];
-  if (!fechas.length || fechas.length > 60) return { error: 'Elige entre 1 y 60 fechas.' };
+  if (!fechas.length || fechas.length > 365) return { error: 'Elige entre 1 y 365 fechas para bloquear.' };
   if (fechas.some(f => !/^\d{4}-\d{2}-\d{2}$/.test(f))) return { error: 'Fecha inválida.' };
   if (!/^\d{2}:\d{2}$/.test(o.inicio) || !/^\d{2}:\d{2}$/.test(o.fin) || mins(o.fin) <= mins(o.inicio)) return { error: 'Horario inválido.' };
   const motivo = String(o.motivo || '').trim().slice(0, 60);
@@ -369,6 +386,7 @@ const DIAS_VALIDOS = [0, 1, 2, 3, 4, 5, 6];
 function celdaGuardar(o) {
   if (!adminOk(o)) return NO_ADMIN;
   const nombre = String(o.nombre || '').trim(), diasAnticipacion = Number(o.diasAnticipacion);
+  const maxBloques = Number(o.maxBloques);
   if (!NOMBRE_OK.test(nombre)) return { error: 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).' };
   if (!HORA_OK.test(o.abre) || !HORA_OK.test(o.cierra) ||
       mins(o.abre) < 0 || mins(o.abre) >= 1440 || mins(o.cierra) < 30 || mins(o.cierra) > 1410 ||
@@ -379,13 +397,18 @@ function celdaGuardar(o) {
       !Number.isInteger(diasAnticipacion) || diasAnticipacion < 0 || diasAnticipacion > 365) {
     return { error: 'La anticipación debe ser un número entero entre 0 y 365 días.' };
   }
+  if (o.maxBloques === '' || o.maxBloques === null || o.maxBloques === undefined ||
+      !Number.isInteger(maxBloques) || maxBloques < 1 || maxBloques > 48 ||
+      maxBloques * 30 > mins(o.cierra) - mins(o.abre)) {
+    return { error: 'La duración máxima debe ser de al menos 30 minutos y no superar el horario disponible de la celda.' };
+  }
   const reservas = leer('Reservas'), hoy = ahora().slice(0, 10);
   if (reservas.some(r => r.estado === 'Activa' && r.fecha >= hoy &&
       (mins(r.inicio) < mins(o.abre) || mins(r.fin) > mins(o.cierra)))) {
     return { error: 'El horario nuevo dejaría reservas activas fuera de horario. Cancélalas o ajusta el horario antes.' };
   }
   const sh = hoja('ConfiguracionCelda');
-  const config = { nombre, abre: o.abre, cierra: o.cierra, diasAnticipacion };
+  const config = { nombre, abre: o.abre, cierra: o.cierra, diasAnticipacion, maxBloques };
   Object.keys(config).forEach(clave => {
     const fila = leer('ConfiguracionCelda').find(r => r.clave === clave);
     if (fila) sh.getRange(fila._fila, 2).setValue(String(config[clave]));
@@ -403,6 +426,8 @@ function labGuardar(o) {
   const valorAnticipacion = nuevo && (o.diasAnticipacion === undefined || o.diasAnticipacion === null)
     ? CFG.DIAS_ANTICIPACION : o.diasAnticipacion;
   const diasAnticipacion = Number(valorAnticipacion);
+  const maxBloques = Number(o.maxBloques === undefined || o.maxBloques === null
+    ? Math.min(CFG.MAX_BLOQUES, Math.floor((mins(cierra) - mins(abre)) / 30)) : o.maxBloques);
   const diasDisponibles = nuevo && (o.diasDisponibles === undefined || o.diasDisponibles === null)
     ? CFG.DIAS_LAB_DEFAULT.slice()
     : Array.isArray(o.diasDisponibles) ? o.diasDisponibles : [];
@@ -414,6 +439,10 @@ function labGuardar(o) {
       !Number.isInteger(diasAnticipacion) || diasAnticipacion < 0 || diasAnticipacion > 365) {
     return { error: 'La anticipación debe ser un número entero entre 0 y 365 días.' };
   }
+  if (o.maxBloques === '' || !Number.isInteger(maxBloques) || maxBloques < 1 || maxBloques > 48 ||
+      maxBloques * 30 > mins(cierra) - mins(abre)) {
+    return { error: 'La duración máxima debe ser de al menos 30 minutos y no superar el horario disponible del laboratorio.' };
+  }
   if (!diasDisponibles.length || diasDisponibles.some((d, i) =>
       !Number.isInteger(d) || DIAS_VALIDOS.indexOf(d) < 0 || diasDisponibles.indexOf(d) !== i)) {
     return { error: 'Selecciona al menos un día disponible.' };
@@ -421,7 +450,7 @@ function labGuardar(o) {
   const labs = leer('Laboratorios').filter(l => l.id);
   if (labs.some(l => l.nombre.toLowerCase() === nombre.toLowerCase() && l.id !== o.id)) return { error: 'Ya existe un laboratorio con ese nombre.' };
   if (!o.id) {
-    hoja('Laboratorios').appendRow([Utilities.getUuid().slice(0, 8), nombre, ubicacion, abre, cierra, diasAnticipacion, diasDisponibles.join(',')]);
+    hoja('Laboratorios').appendRow([Utilities.getUuid().slice(0, 8), nombre, ubicacion, abre, cierra, diasAnticipacion, diasDisponibles.join(','), maxBloques]);
     return { ok: 1 };
   }
   const l = labs.find(x => x.id === o.id);
@@ -434,7 +463,7 @@ function labGuardar(o) {
   if (reservasActivas.some(r => diasDisponibles.indexOf(diaSemana(r.fecha)) < 0)) {
     return { error: 'Los nuevos días no están disponibles para una reserva activa. Cancélala o conserva ese día habilitado.' };
   }
-  hoja('Laboratorios').getRange(l._fila, 2, 1, 6).setValues([[nombre, ubicacion, abre, cierra, diasAnticipacion, diasDisponibles.join(',')]]);
+  hoja('Laboratorios').getRange(l._fila, 2, 1, 7).setValues([[nombre, ubicacion, abre, cierra, diasAnticipacion, diasDisponibles.join(','), maxBloques]]);
   return { ok: 1 };
 }
 
@@ -489,6 +518,8 @@ function labImplementoQuitar(o) {
 }
 
 function crearReservaLab(r) {
+  const duracionAutorizada = r.autorizarDuracion === true;
+  if (duracionAutorizada && !adminOk(r)) return NO_ADMIN;
   const nombre = String(r.nombre || '').trim(), mat = String(r.matricula || '').trim();
   const personas = r.personas === undefined || r.personas === null ? 1 : Number(r.personas);
   const lab = leer('Laboratorios').find(l => l.id === r.lab);
@@ -504,7 +535,11 @@ function crearReservaLab(r) {
   if (new Set(fechas.map(dia => dia.slice(0, 7))).size > 1) return { error: 'Todas las fechas de una reserva deben pertenecer al mismo mes.' };
   if (!/^\d{2}:\d{2}$/.test(r.inicio) || !/^\d{2}:\d{2}$/.test(r.fin)) return { error: 'Hora inválida.' };
   const inicio = mins(r.inicio), fin = mins(r.fin);
-  if (inicio % 30 !== 0 || fin % 30 !== 0 || fin - inicio < 30 || fin - inicio > 30 * CFG.MAX_BLOQUES) return { error: 'Duración máxima: ' + (CFG.MAX_BLOQUES * 30) + ' minutos.' };
+  const maxBloques = maxBloquesLaboratorio(lab);
+  if (inicio % 30 !== 0 || fin % 30 !== 0 || fin - inicio < 30 ||
+      (fin - inicio > 30 * maxBloques && !duracionAutorizada)) {
+    return { error: 'Duración máxima: ' + (maxBloques * 30) + ' minutos. El administrador debe autorizar más tiempo.' };
+  }
   if (inicio < mins(lab.abre) || fin > mins(lab.cierra)) return { error: 'Fuera del horario de apertura del laboratorio.' };
   const diasAnticipacion = Number.isInteger(Number(lab.diasAnticipacion)) &&
     lab.diasAnticipacion !== '' && lab.diasAnticipacion !== null && lab.diasAnticipacion !== undefined
@@ -544,7 +579,7 @@ function labOcupar(o) {
   const lab = leer('Laboratorios').find(l => l.id === o.lab);
   if (!lab) return { error: 'Laboratorio no encontrado.' };
   const fechas = [...new Set(Array.isArray(o.fechas) ? o.fechas : [])];
-  if (!fechas.length || fechas.length > 60) return { error: 'Elige entre 1 y 60 fechas.' };
+  if (!fechas.length || fechas.length > 365) return { error: 'Elige entre 1 y 365 fechas para bloquear.' };
   if (fechas.some(f => !/^\d{4}-\d{2}-\d{2}$/.test(f))) return { error: 'Fecha inválida.' };
   if (!HORA_OK.test(o.inicio) || !HORA_OK.test(o.fin) || mins(o.fin) <= mins(o.inicio)) return { error: 'Horario inválido.' };
   if (mins(o.inicio) < mins(lab.abre) || mins(o.fin) > mins(lab.cierra)) return { error: 'Fuera del horario de apertura del laboratorio.' };

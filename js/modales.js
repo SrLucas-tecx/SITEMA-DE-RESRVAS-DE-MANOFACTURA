@@ -18,6 +18,24 @@ const etiqueta = f => `${nombreDia(f)} ${diaDelMes(f)}/${f.slice(5, 7)}`;
 const disponibleLab = (lab, fecha) =>
   (Array.isArray(lab.diasDisponibles) ? lab.diasDisponibles : CFG.DIAS_LAB_DEFAULT).includes(diaSemana(fecha));
 
+function actualizarDuraciones() {
+  const inicio = aMinutos($('#inicio').value);
+  const cierre = aMinutos(reservaLab ? reservaLab.cierra : CFG.HORA_FIN);
+  const disponibles = Math.max(0, Math.floor((cierre - inicio) / 30));
+  const autorizada = !!estado.admin && $('#autorizarTiempoExtendido').checked;
+  const limite = Math.min(disponibles, autorizada
+    ? disponibles
+    : reservaLab ? reservaLab.maxBloques ?? CFG.MAX_BLOQUES : CFG.MAX_BLOQUES_CELDA);
+  const anterior = Number($('#dur').value);
+  $('#dur').innerHTML = Array.from({ length: limite }, (_, i) => {
+    const minutos = (i + 1) * 30;
+    const texto = minutos < 60 ? `${minutos} min`
+      : `${Math.floor(minutos / 60)} h${minutos % 60 ? ` ${minutos % 60} min` : ''}`;
+    return `<option value="${i + 1}">${texto}</option>`;
+  }).join('');
+  if (limite) $('#dur').value = String(anterior >= 1 && anterior <= limite ? anterior : 1);
+}
+
 function primerDiaLab(lab, fecha) {
   let dia = fecha;
   while (diaProhibido(dia) || !disponibleLab(lab, dia)) dia = sumarDias(dia, 1);
@@ -97,6 +115,8 @@ function dibujarEquipos(equipos = nombresEquipos().map(nombre => ({ nombre, colo
 export function abrirApartar(fecha, inicio, equipo) {
   reservaLab = null;
   $('#apartTitulo').textContent = 'Apartar';
+  $('#autorizarTiempoExtendidoLabel').hidden = !estado.admin;
+  $('#autorizarTiempoExtendido').checked = false;
   const minimo = fechaMinima();
   $('#fechaR').min = minimo;
   let primero = minimo;                       // primer día que se puede apartar (sin fin de semana cerrado)
@@ -113,6 +133,7 @@ export function abrirApartar(fecha, inicio, equipo) {
     $('#inicio').value = inicio;
     casillas().forEach(c => c.checked = (c.value === equipo));
   }
+  actualizarDuraciones();
   equiposPorFecha.set(fechasSel[0], casillas().filter(c => c.checked).map(c => c.value));
   dibujarFechas();
   $('#formApartar').hidden = false;
@@ -126,6 +147,8 @@ export function abrirApartarLab(fecha, inicio, labId, nombreImplemento) {
   if (!lab) return;
   reservaLab = lab;
   $('#apartTitulo').textContent = `Apartar en ${lab.nombre}`;
+  $('#autorizarTiempoExtendidoLabel').hidden = !estado.admin;
+  $('#autorizarTiempoExtendido').checked = false;
   const minimo = fechaMinima(lab.diasAnticipacion ?? CFG.DIAS_ANTICIPACION);
   $('#fechaR').min = minimo;
   const primero = primerDiaLab(lab, minimo);
@@ -146,6 +169,7 @@ export function abrirApartarLab(fecha, inicio, labId, nombreImplemento) {
     $('#inicio').value = inicio;
     casillas().forEach(c => c.checked = c.value === nombreImplemento);
   }
+  actualizarDuraciones();
   equiposPorFecha.set(fechasSel[0], casillas().filter(c => c.checked).map(c => c.value));
   dibujarFechas();
   $('#formApartar').hidden = false;
@@ -178,6 +202,8 @@ async function apartar(recargar) {
     otros: $('#otros').value.trim(),
     inicio: inicio,
     fin: aHora(aMinutos(inicio) + 30 * $('#dur').value),
+    autorizarDuracion: $('#autorizarTiempoExtendido').checked,
+    admin: $('#autorizarTiempoExtendido').checked ? estado.admin : undefined,
     equipos: casillas().filter(c => c.checked).map(c => c.value),
     equiposPorFecha: fechasSel.map(fecha => ({
       fecha,
@@ -206,6 +232,7 @@ async function apartar(recargar) {
     let error;
     if (reservaLab) {
       const inicioMin = aMinutos(r.inicio), finMin = aMinutos(r.fin);
+      const maxBloques = reservaLab.maxBloques ?? CFG.MAX_BLOQUES;
       const diasAnticipacion = reservaLab.diasAnticipacion ?? CFG.DIAS_ANTICIPACION;
       const minimo = fechaMinima(diasAnticipacion);
       if (!r.nombre.trim() || r.nombre.trim().length < 3) error = 'Escribe tu nombre completo.';
@@ -214,12 +241,16 @@ async function apartar(recargar) {
       else if (f < minimo) error = `Este laboratorio requiere ${diasAnticipacion} días de anticipación. Primer día disponible: ${minimo}.`;
       else if (!disponibleLab(reservaLab, f)) error = 'Este laboratorio no está disponible ese día de la semana.';
       else if (diaProhibido(f)) error = 'Los sábados y domingos no se pueden apartar (solo con autorización del administrador).';
+      else if (finMin - inicioMin > 30 * maxBloques && !(r.autorizarDuracion && estado.admin)) error = `Duración máxima: ${maxBloques * 30} minutos. El administrador debe autorizar más tiempo.`;
       else if (inicioMin < aMinutos(reservaLab.abre) || finMin > aMinutos(reservaLab.cierra)) error = 'Fuera del horario de apertura del laboratorio.';
       else if (f + ' ' + r.inicio < ahora()) error = 'Ese horario ya pasó.';
       else if (usoLabTodos().some(u => u.lab === reservaLab.id && u.fecha === f && inicioMin < aMinutos(u.fin) && finMin > aMinutos(u.inicio))) error = 'El laboratorio está ocupado por una actividad.';
       else if (reservasLabTodos().some(x => x.estado === 'Activa' && x.lab === reservaLab.id && x.fecha === f && inicioMin < aMinutos(x.fin) && finMin > aMinutos(x.inicio) && x.equipos.some(e => equiposDia.includes(e)))) error = 'Uno de los implementos ya está reservado en ese horario.';
     } else {
-      error = validar({ ...r, fecha: f, equipos: equiposDia }, activas, estado.datos.blq, autorizados());
+      error = validar({ ...r, fecha: f, equipos: equiposDia }, activas, estado.datos.blq, autorizados(), {
+        maxBloques: Number(estado.datos.configuracionCelda?.maxBloques) || CFG.MAX_BLOQUES_CELDA,
+        duracionAutorizada: r.autorizarDuracion && !!estado.admin
+      });
     }
     if (error) {
       const dia = r.fechas.length > 1 ? etiqueta(f) + ': ' : '';
@@ -274,8 +305,9 @@ async function cancelar(recargar) {
 export function iniciarModales(recargar) {
   // Llenar selects y casillas del formulario
   $('#inicio').innerHTML = bloques.map(t => `<option>${aHora(t)}</option>`).join('');
-  $('#dur').innerHTML = Array.from({ length: CFG.MAX_BLOQUES }, (_, i) =>
-    `<option value="${i + 1}">${(i + 1) * 30} min</option>`).join('');
+  actualizarDuraciones();
+  $('#inicio').onchange = actualizarDuraciones;
+  $('#autorizarTiempoExtendido').onchange = actualizarDuraciones;
 
   // Días: al elegir una fecha se agrega; la ✕ la quita
   $('#fechaR').onchange = agregarFecha;

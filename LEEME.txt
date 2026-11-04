@@ -31,8 +31,13 @@ MODO ADMINISTRADOR
   usa las pestañas para cambiar entre material de la celda, laboratorios, horarios y
   excepciones, y ocupaciones y reservas. Abre un laboratorio para gestionar sus propios
   implementos reservables y su horario. En "Celda de manufactura" también puedes
-  configurar el nombre, horario y días de anticipación de la celda. Cada laboratorio
-  permite seleccionar sus días disponibles; los nuevos vienen configurados de lunes a viernes,
+  configurar el nombre, horario, duración máxima de cada reserva y días de anticipación.
+  Cuando el administrador aparta una celda, puede marcar la autorización para reservar
+  más tiempo que el máximo general, sin exceder la hora de cierre. Cada laboratorio también
+  permite configurar su duración máxima y autorizar excepciones al reservar. Los bloqueos de
+  celda y las ocupaciones de laboratorios permiten elegir días de la semana, semanas de repetición
+  (hasta 52) o todos los días durante ese periodo. Cada laboratorio permite seleccionar sus
+  días disponibles; los nuevos vienen configurados de lunes a viernes,
   de 08:00 a 20:00 y con 5 días de anticipación.
   En la vista pública de Laboratorios, "Días disponibles" lista solo las fechas con
   implementos y horarios libres para el laboratorio seleccionado.

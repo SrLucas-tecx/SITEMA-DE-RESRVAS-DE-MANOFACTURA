@@ -32,7 +32,7 @@ function mostrarConexion(ok) {
 let avisado = false;   // ya se avisó que se perdió la conexión
 
 function aplicarConfiguracionCelda(config = {}) {
-  const anterior = `${CFG.NOMBRE_CELDA}|${CFG.HORA_INI}|${CFG.HORA_FIN}|${CFG.DIAS_ANTICIPACION}`;
+  const anterior = `${CFG.NOMBRE_CELDA}|${CFG.HORA_INI}|${CFG.HORA_FIN}|${CFG.DIAS_ANTICIPACION}|${CFG.MAX_BLOQUES_CELDA}`;
   if (typeof config.nombre === 'string' && config.nombre.trim()) CFG.NOMBRE_CELDA = config.nombre;
   if (/^\d{2}:\d{2}$/.test(config.abre) && /^\d{2}:\d{2}$/.test(config.cierra) &&
       aMinutos(config.abre) % 30 === 0 && aMinutos(config.cierra) % 30 === 0 &&
@@ -46,7 +46,12 @@ function aplicarConfiguracionCelda(config = {}) {
       config.diasAnticipacion !== undefined && Number.isInteger(dias) && dias >= 0 && dias <= 365) {
     CFG.DIAS_ANTICIPACION = dias;
   }
-  const actual = `${CFG.NOMBRE_CELDA}|${CFG.HORA_INI}|${CFG.HORA_FIN}|${CFG.DIAS_ANTICIPACION}`;
+  const maxBloques = Number(config.maxBloques);
+  if (Number.isInteger(maxBloques) && maxBloques >= 1 && maxBloques <= 48 &&
+      maxBloques <= (aMinutos(CFG.HORA_FIN) - aMinutos(CFG.HORA_INI)) / 30) {
+    CFG.MAX_BLOQUES_CELDA = maxBloques;
+  }
+  const actual = `${CFG.NOMBRE_CELDA}|${CFG.HORA_INI}|${CFG.HORA_FIN}|${CFG.DIAS_ANTICIPACION}|${CFG.MAX_BLOQUES_CELDA}`;
   if (actual === anterior) return;
 
   actualizarBloques();

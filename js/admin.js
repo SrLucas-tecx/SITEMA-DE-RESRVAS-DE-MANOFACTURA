@@ -1,7 +1,7 @@
 /* Modo administrador: pantalla propia para el material, los fines de semana autorizados,
    los bloqueos y las reservas. También las acciones rápidas desde el calendario. */
 import { CFG } from './config.js';
-import { $, aMinutos, aHora, escapar, hoy, sumarDias, nombreDia, esFinDeSemana } from './utils.js';
+import { $, aMinutos, aHora, escapar, hoy, sumarDias, nombreDia, diaSemana, esFinDeSemana } from './utils.js';
 import { api } from './api.js';
 import { estado, listaEquipos, colorDe, autorizados, reservasLabTodos, laboratorios } from './estado.js';
 import { bloques } from './horario.js';
@@ -69,12 +69,20 @@ function dibujarConfigCelda() {
   $('#celdaNombre').value = config.nombre || CFG.NOMBRE_CELDA;
   $('#celdaAbre').value = config.abre || CFG.HORA_INI;
   $('#celdaCierra').value = config.cierra || CFG.HORA_FIN;
+  $('#celdaMaxDuracion').value = (config.maxBloques ?? CFG.MAX_BLOQUES_CELDA) * 30;
+  actualizarTopeDuracionCelda();
   $('#celdaAnticipacion').value = config.diasAnticipacion ?? CFG.DIAS_ANTICIPACION;
+}
+
+function actualizarTopeDuracionCelda() {
+  $('#celdaMaxDuracion').max = Math.max(30, aMinutos($('#celdaCierra').value) - aMinutos($('#celdaAbre').value));
 }
 
 async function guardarConfiguracionCelda(recargar) {
   const nombre = $('#celdaNombre').value.trim();
   const abre = $('#celdaAbre').value, cierra = $('#celdaCierra').value;
+  const maxDuracion = $('#celdaMaxDuracion').value.trim();
+  const maxBloques = Number(maxDuracion) / 30;
   const valorAnticipacion = $('#celdaAnticipacion').value.trim();
   const diasAnticipacion = Number(valorAnticipacion);
   if (!NOMBRE_EQUIPO.test(nombre)) return error('#celdaConfigOut', 'Escribe un nombre válido (máximo 30 caracteres).');
@@ -87,8 +95,12 @@ async function guardarConfiguracionCelda(recargar) {
   if (!valorAnticipacion || !Number.isInteger(diasAnticipacion) || diasAnticipacion < 0 || diasAnticipacion > 365) {
     return error('#celdaConfigOut', 'La anticipación debe ser un número entero entre 0 y 365 días.');
   }
+  if (!maxDuracion || !Number.isInteger(maxBloques) || maxBloques < 1 ||
+      Number(maxDuracion) > aMinutos(cierra) - aMinutos(abre)) {
+    return error('#celdaConfigOut', 'La duración máxima debe ser de al menos 30 minutos y no superar el horario disponible de la celda.');
+  }
   let respuesta;
-  try { respuesta = await api.celdaGuardar({ admin: estado.admin, nombre, abre, cierra, diasAnticipacion }); }
+  try { respuesta = await api.celdaGuardar({ admin: estado.admin, nombre, abre, cierra, diasAnticipacion, maxBloques }); }
   catch (e) { respuesta = sinConexion; }
   if (respuesta.error) return error('#celdaConfigOut', respuesta.error);
   await recargar();
@@ -108,10 +120,15 @@ export function dibujarAdmin() {
       `<span class="acc"><button data-aut-del="${a.fecha}">Quitar</button></span></li>`).join('')
     || '<li class="sub">Ninguna fecha autorizada.</li>';
 
-  $('#listaBloqueos').innerHTML = estado.datos.blq.filter(b => b.fecha >= hoyStr).sort(porFecha)
+  const bloqueosFuturos = estado.datos.blq.filter(b => b.fecha >= hoyStr).sort(porFecha);
+  $('#listaBloqueos').innerHTML = bloqueosFuturos.slice(0, 60)
     .map(b => `<li><span><b>${b.fecha}</b> · ${b.inicio}–${b.fin}${b.motivo ? ' · ' + escapar(b.motivo) : ''}</span>` +
       `<span class="acc"><button data-bq-del="${b.fecha}|${b.inicio}|${b.fin}">Quitar</button></span></li>`).join('')
     || '<li class="sub">Sin horarios bloqueados.</li>';
+  if (bloqueosFuturos.length > 60) {
+    $('#listaBloqueos').insertAdjacentHTML('beforeend',
+      `<li class="sub">Mostrando 60 de ${bloqueosFuturos.length} bloqueos próximos.</li>`);
+  }
 
   const reservasAdmin = [
     ...estado.datos.res.filter(x => x.fecha >= hoyStr).map(x => ({ ...x, tipo: 'celda' })),
@@ -190,22 +207,37 @@ export async function quitarBloqueo(fecha, inicio, fin, recargar) {
 
 /* ---------- Bloqueos (clases, mantenimiento…) ---------- */
 function abrirBloqueo() {
-  $('#bFecha').value = estado.fecha;
-  $('#bHasta').value = '';
+  const fecha = estado.fecha >= hoy() ? estado.fecha : hoy();
+  $('#bFecha').value = fecha;
+  $('#bSemanas').value = '1';
+  document.querySelectorAll('#bDias input[type="checkbox"]').forEach(input => {
+    input.checked = input.value === String(diaSemana(fecha));
+  });
+  $('#bTodos').checked = false;
   $('#bMotivo').value = '';
   $('#bout').innerHTML = '';
   $('#modalBloqueo').showModal();
 }
 
 async function guardarBloqueo(recargar) {
-  const fecha = $('#bFecha').value, hasta = $('#bHasta').value;
+  const fecha = $('#bFecha').value;
+  const semanas = Number($('#bSemanas').value);
   const inicio = $('#bIni').value, fin = $('#bFin').value;
   if (!fecha) return error('#bout', 'Elige una fecha.');
+  if (!Number.isInteger(semanas) || semanas < 1 || semanas > 52) {
+    return error('#bout', 'Elige entre 1 y 52 semanas.');
+  }
   if (aMinutos(fin) <= aMinutos(inicio)) return error('#bout', 'La hora final debe ser después de la inicial.');
 
-  // Con "repetir cada semana hasta" se bloquea el mismo día de cada semana (máx. 60)
-  const fechas = [fecha];
-  for (let d = sumarDias(fecha, 7); hasta && d <= hasta && fechas.length < 60; d = sumarDias(d, 7)) fechas.push(d);
+  const dias = new Set([...document.querySelectorAll('#bDias input[type="checkbox"]:checked')]
+    .filter(input => input.id !== 'bTodos').map(input => Number(input.value)));
+  if ($('#bTodos').checked) for (let dia = 0; dia <= 6; dia++) dias.add(dia);
+  if (!dias.size) return error('#bout', 'Selecciona al menos un día de la semana.');
+  const fechas = [];
+  const limite = sumarDias(fecha, semanas * 7);
+  for (let dia = fecha; dia < limite; dia = sumarDias(dia, 1)) {
+    if (dias.has(diaSemana(dia))) fechas.push(dia);
+  }
 
   let r;
   try { r = await api.bloquear({ admin: estado.admin, fechas, inicio, fin, motivo: $('#bMotivo').value.trim() }); }
@@ -254,9 +286,28 @@ export function iniciarAdmin(recargar, verLab) {
   // Panel
   $('#pantallaAdmin').onclick = ev => clicPanel(ev, recargar);
   $('#guardarConfigCelda').onclick = () => guardarConfiguracionCelda(recargar);
+  $('#celdaAbre').onchange = actualizarTopeDuracionCelda;
+  $('#celdaCierra').onchange = actualizarTopeDuracionCelda;
   $('#eCerrar').onclick = () => $('#modalEquipo').close();
   $('#autorizar').onclick = () => autorizar(recargar);
   $('#bloquear').onclick = abrirBloqueo;
+  $('#bFecha').onchange = () => {
+    if ($('#bTodos').checked) return;
+    document.querySelectorAll('#bDias input[type="checkbox"]').forEach(input => {
+      input.checked = input.value === String(diaSemana($('#bFecha').value));
+    });
+  };
+  $('#bTodos').onchange = () => {
+    document.querySelectorAll('#bDias input[type="checkbox"]').forEach(input => {
+      if (input.id !== 'bTodos') input.checked = $('#bTodos').checked;
+    });
+  };
+  document.querySelectorAll('#bDias input[type="checkbox"]:not(#bTodos)').forEach(input => {
+    input.onchange = () => {
+      $('#bTodos').checked = [...document.querySelectorAll('#bDias input[type="checkbox"]:not(#bTodos)')]
+        .every(dia => dia.checked);
+    };
+  });
   $('#bCerrar').onclick = () => $('#modalBloqueo').close();
   $('#bGuardar').onclick = () => guardarBloqueo(recargar);
 

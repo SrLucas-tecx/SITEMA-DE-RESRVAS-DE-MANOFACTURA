@@ -1,6 +1,6 @@
 /* Panel de administración: laboratorios (horario de apertura) y los ratos en que están ocupados */
 import { CFG } from './config.js';
-import { $, aMinutos, aHora, escapar, hoy, sumarDias } from './utils.js';
+import { $, aMinutos, aHora, escapar, hoy, sumarDias, diaSemana } from './utils.js';
 import { api } from './api.js';
 import { estado, laboratorios, usoLabTodos, labActual, implementosLabTodos } from './estado.js';
 import { NOMBRE_EQUIPO } from './validacion.js';
@@ -25,7 +25,7 @@ export function dibujarAdminLabs() {
   const hoyStr = hoy(), nombres = Object.fromEntries(labs.map(l => [l.id, l.nombre]));
 
   $('#listaLabs').innerHTML = labs.map(l =>
-    `<li class="admin-lab-row"><span class="admin-row-info"><b>${escapar(l.nombre)}</b><small>${l.abre}–${l.cierra}${l.ubicacion ? ' · ' + escapar(l.ubicacion) : ''} · ${escapar(textoDias(diasLab(l)))}</small></span>` +
+    `<li class="admin-lab-row"><span class="admin-row-info"><b>${escapar(l.nombre)}</b><small>${l.abre}–${l.cierra} · máximo ${((l.maxBloques ?? CFG.MAX_BLOQUES) * 30)} min${l.ubicacion ? ' · ' + escapar(l.ubicacion) : ''} · ${escapar(textoDias(diasLab(l)))}</small></span>` +
     `<span class="acc"><button class="p" data-lab-open="${escapar(l.id)}">Abrir laboratorio</button><button data-lab-ver="${escapar(l.id)}">Calendario</button><button data-lab-edit="${escapar(l.id)}">Editar</button>` +
     `<button class="peligro" data-lab-del="${escapar(l.id)}">Quitar</button></span></li>`).join('')
     || '<li class="sub">Todavía no hay laboratorios. Agrega el primero.</li>';
@@ -35,7 +35,7 @@ export function dibujarAdminLabs() {
   $('#adminLabDetalle').hidden = !labDetalle;
   if (labDetalle) {
     $('#adminLabNombre').textContent = labDetalle.nombre;
-    $('#adminLabInfo').textContent = `${labDetalle.abre}–${labDetalle.cierra}${labDetalle.ubicacion ? ` · ${labDetalle.ubicacion}` : ''} · ${textoDias(diasLab(labDetalle))} · requiere ${labDetalle.diasAnticipacion ?? CFG.DIAS_ANTICIPACION} días de anticipación`;
+    $('#adminLabInfo').textContent = `${labDetalle.abre}–${labDetalle.cierra} · máximo ${(labDetalle.maxBloques ?? CFG.MAX_BLOQUES) * 30} min por reserva${labDetalle.ubicacion ? ` · ${labDetalle.ubicacion}` : ''} · ${textoDias(diasLab(labDetalle))} · requiere ${labDetalle.diasAnticipacion ?? CFG.DIAS_ANTICIPACION} días de anticipación`;
     recursosLab?.dibujar();
   } else {
     labImplementos = null;
@@ -80,6 +80,8 @@ function abrirLab(id) {
   $('#lUbicacion').value = lab ? lab.ubicacion : '';
   $('#lAbre').value = lab ? lab.abre : CFG.HORA_INI;
   $('#lCierra').value = lab ? lab.cierra : CFG.HORA_FIN;
+  $('#lMaxDuracion').value = (lab ? lab.maxBloques ?? CFG.MAX_BLOQUES : CFG.MAX_BLOQUES) * 30;
+  actualizarTopeDuracionLab();
   $('#lAnticipacion').value = lab ? (lab.diasAnticipacion ?? CFG.DIAS_ANTICIPACION) : CFG.DIAS_ANTICIPACION;
   const dias = diasLab(lab);
   document.querySelectorAll('#lDias input').forEach(input => { input.checked = dias.includes(Number(input.value)); });
@@ -87,10 +89,21 @@ function abrirLab(id) {
   $('#modalLab').showModal();
 }
 
+function actualizarTopeDuracionLab() {
+  const maximo = Math.max(30, aMinutos($('#lCierra').value) - aMinutos($('#lAbre').value));
+  $('#lMaxDuracion').max = maximo;
+  if (Number($('#lMaxDuracion').value) > maximo) $('#lMaxDuracion').value = maximo;
+}
+
 async function guardarLab(recargar) {
   const nombre = $('#lNombre').value.trim(), abre = $('#lAbre').value, cierra = $('#lCierra').value;
+  const maxDuracion = $('#lMaxDuracion').value.trim(), maxBloques = Number(maxDuracion) / 30;
   if (!NOMBRE_EQUIPO.test(nombre)) return error('#lout', 'Nombre inválido: usa letras, números y + - / ( ) . (máximo 30).');
   if (aMinutos(cierra) <= aMinutos(abre)) return error('#lout', 'La hora de cierre debe ser después de la de apertura.');
+  if (!maxDuracion || !Number.isInteger(maxBloques) || maxBloques < 1 ||
+      Number(maxDuracion) > aMinutos(cierra) - aMinutos(abre)) {
+    return error('#lout', 'La duración máxima debe ser de al menos 30 minutos y no superar el horario disponible del laboratorio.');
+  }
   const valorAnticipacion = $('#lAnticipacion').value.trim();
   const diasAnticipacion = Number(valorAnticipacion);
   const diasDisponibles = [...document.querySelectorAll('#lDias input:checked')].map(input => Number(input.value));
@@ -99,7 +112,7 @@ async function guardarLab(recargar) {
   }
   if (!diasDisponibles.length) return error('#lout', 'Selecciona al menos un día disponible.');
   let r;
-  try { r = await api.labGuardar({ admin: estado.admin, id: editando, nombre, ubicacion: $('#lUbicacion').value.trim(), abre, cierra, diasAnticipacion, diasDisponibles }); }
+  try { r = await api.labGuardar({ admin: estado.admin, id: editando, nombre, ubicacion: $('#lUbicacion').value.trim(), abre, cierra, diasAnticipacion, diasDisponibles, maxBloques }); }
   catch (e) { r = sinConexion; }
   if (r.error) return error('#lout', r.error);
   $('#modalLab').close();
@@ -113,26 +126,40 @@ export function abrirUso(prefill = {}) {
   $('#uLab').innerHTML = laboratorios().map(l => `<option value="${escapar(l.id)}">${escapar(l.nombre)}</option>`).join('');
   $('#uLab').value = prefill.lab || (labActual() || {}).id;
   $('#uFecha').value = prefill.fecha || estado.fecha;
+  $('#uSemanas').value = '1';
+  document.querySelectorAll('#uDias input[type="checkbox"]').forEach(input => {
+    input.checked = input.value === String(diaSemana($('#uFecha').value));
+  });
+  $('#uTodos').checked = false;
   $('#uIni').selectedIndex = 0;
   $('#uFin').selectedIndex = 1;
   if (prefill.inicio) {
     $('#uIni').value = prefill.inicio;
     $('#uFin').value = aHora(aMinutos(prefill.inicio) + 30);
   }
-  $('#uHasta').value = '';
   $('#uMotivo').value = '';
   $('#uout').innerHTML = '';
   $('#modalUsoLab').showModal();
 }
 
 async function guardarUso(recargar) {
-  const fecha = $('#uFecha').value, hasta = $('#uHasta').value, inicio = $('#uIni').value, fin = $('#uFin').value;
+  const fecha = $('#uFecha').value, semanas = Number($('#uSemanas').value);
+  const inicio = $('#uIni').value, fin = $('#uFin').value;
   if (!fecha) return error('#uout', 'Elige una fecha.');
+  if (!Number.isInteger(semanas) || semanas < 1 || semanas > 52) {
+    return error('#uout', 'Elige entre 1 y 52 semanas.');
+  }
   if (aMinutos(fin) <= aMinutos(inicio)) return error('#uout', 'La hora final debe ser después de la inicial.');
 
-  // Con "repetir cada semana hasta" se registra el mismo día de cada semana (máx. 60)
-  const fechas = [fecha];
-  for (let d = sumarDias(fecha, 7); hasta && d <= hasta && fechas.length < 60; d = sumarDias(d, 7)) fechas.push(d);
+  const dias = new Set([...document.querySelectorAll('#uDias input[type="checkbox"]:checked')]
+    .filter(input => input.id !== 'uTodos').map(input => Number(input.value)));
+  if ($('#uTodos').checked) for (let dia = 0; dia <= 6; dia++) dias.add(dia);
+  if (!dias.size) return error('#uout', 'Selecciona al menos un día de la semana.');
+  const fechas = [];
+  const limite = sumarDias(fecha, semanas * 7);
+  for (let dia = fecha; dia < limite; dia = sumarDias(dia, 1)) {
+    if (dias.has(diaSemana(dia))) fechas.push(dia);
+  }
 
   let r;
   try { r = await api.labOcupar({ admin: estado.admin, lab: $('#uLab').value, fechas, inicio, fin, motivo: $('#uMotivo').value.trim() }); }
@@ -184,6 +211,8 @@ export function iniciarAdminLabs(recargar, verCalendario, abrirDetalle) {
   const horas = Array.from({ length: 48 }, (_, i) => `<option>${aHora(i * 30)}</option>`).join('');
   const fines = Array.from({ length: 48 }, (_, i) => `<option>${aHora((i + 1) * 30)}</option>`).join('');
   $('#lAbre').innerHTML = horas;    $('#lCierra').innerHTML = fines;
+  $('#lAbre').onchange = actualizarTopeDuracionLab;
+  $('#lCierra').onchange = actualizarTopeDuracionLab;
   $('#uIni').innerHTML = horas;     $('#uFin').innerHTML = fines;
 
   $('#nuevoUso').onclick = () => abrirUso();
@@ -191,4 +220,21 @@ export function iniciarAdminLabs(recargar, verCalendario, abrirDetalle) {
   $('#lGuardar').onclick = () => guardarLab(recargar);
   $('#uCerrar').onclick = () => $('#modalUsoLab').close();
   $('#uGuardar').onclick = () => guardarUso(recargar);
+  $('#uFecha').onchange = () => {
+    if ($('#uTodos').checked) return;
+    document.querySelectorAll('#uDias input[type="checkbox"]').forEach(input => {
+      input.checked = input.value === String(diaSemana($('#uFecha').value));
+    });
+  };
+  $('#uTodos').onchange = () => {
+    document.querySelectorAll('#uDias input[type="checkbox"]').forEach(input => {
+      if (input.id !== 'uTodos') input.checked = $('#uTodos').checked;
+    });
+  };
+  document.querySelectorAll('#uDias input[type="checkbox"]:not(#uTodos)').forEach(input => {
+    input.onchange = () => {
+      $('#uTodos').checked = [...document.querySelectorAll('#uDias input[type="checkbox"]:not(#uTodos)')]
+        .every(dia => dia.checked);
+    };
+  });
 }

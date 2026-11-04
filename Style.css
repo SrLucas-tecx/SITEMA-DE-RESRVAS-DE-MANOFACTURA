@@ -107,6 +107,8 @@ aside li small { color: var(--m); }
 .eq { display: flex; gap: 8px 14px; flex-wrap: wrap; margin: 12px 0; }
 .eq label { display: flex; gap: 6px; align-items: center; color: var(--t); }
 .eq input { width: auto; margin: 0; }
+.autorizar-tiempo { display: flex; gap: 8px; align-items: center; margin-top: 10px; color: var(--t); }
+.autorizar-tiempo input { width: auto; margin: 0; }
 
 .dias { margin-top: 12px; }
 .dias > .switch { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--t); }
@@ -160,7 +162,7 @@ td.l:hover { background: #c4f0d6; box-shadow: inset 0 0 0 2px var(--green); }
 td.l:hover::after { content: '+'; color: #00844a; font-weight: 800; font-size: 20px; }
 
 /* No disponible (ya pasó o falta anticipación): rayitas */
-td.x { background: repeating-linear-gradient(135deg, #e7eef5 0 6px, #dae4ee 6px 12px); color: var(--m); }
+td.x { background: repeating-linear-gradient(135deg, #fde8e8 0 6px, #f8d0d0 6px 12px); color: #8f2d2d; }
 
 /* Reserva: un solo bloque de color con el nombre y la hora */
 td.o {
@@ -328,24 +330,27 @@ input[type="color"] { height: 40px; padding: 2px 4px; cursor: pointer; }
 .dias-semana { display: flex; gap: 8px 16px; flex-wrap: wrap; margin: 12px 0; border: 1px solid var(--b); border-radius: 10px; }
 .dias-semana label { display: inline-flex; align-items: center; gap: 5px; }
 .dias-semana input { width: auto; margin: 0; }
+#modalBloqueo .bloqueo-dias { grid-column: 1 / -1; margin: 0; padding: 10px; }
+#modalBloqueo .bloqueo-dias legend { padding: 0 4px; }
+#modalBloqueo .bloqueo-todos { flex-basis: 100%; padding-top: 6px; border-top: 1px solid var(--b); }
 .lista-admin .resource-row { min-width: 0; }
 .lista-admin .resource-name { min-width: 0; overflow-wrap: anywhere; }
 .admin-lab-detail .lista-admin { max-width: 760px; }
 
 /* Fines de semana cerrados */
-th.finde { background: repeating-linear-gradient(135deg, #dfe7ef 0 6px, #d3dde8 6px 12px); color: var(--m); }
-td.m.prohibido { background: repeating-linear-gradient(135deg, #eef3f8 0 6px, #e1e9f1 6px 12px); cursor: default; }
+th.finde { background: repeating-linear-gradient(135deg, #fde8e8 0 6px, #f8d0d0 6px 12px); color: #8f2d2d; }
+td.m.prohibido { background: repeating-linear-gradient(135deg, #fff1f1 0 6px, #fde0e0 6px 12px); cursor: default; }
 td.m small.aut { color: #00844a; font-weight: 600; }
 
 /* ===== Disponibilidad: libre = verde, no disponible = rayas ===== */
 .segs i.libre { background: #bfeed3; }
-.segs i.no { background: repeating-linear-gradient(135deg, #e7eef5 0 4px, #c3d0de 4px 8px); }
+.segs i.no { background: repeating-linear-gradient(135deg, #fde8e8 0 4px, #f2bcbc 4px 8px); }
 td.m.disp { background: #e2f6ea; }
 td.m.disp:hover { background: #c4f0d6; }
-td.m.nodisp { background: repeating-linear-gradient(135deg, #eef3f8 0 6px, #dde6ef 6px 12px); }
+td.m.nodisp { background: repeating-linear-gradient(135deg, #fff1f1 0 6px, #fde0e0 6px 12px); }
 body td.bq[data-ir] { cursor: pointer; }
 .chip.libre { background: #bfeed3; border: 1px solid #7cc79b; }
-.chip.no { background: repeating-linear-gradient(135deg, #e7eef5 0 3px, #b3c3d4 3px 6px); }
+.chip.no { background: repeating-linear-gradient(135deg, #fde8e8 0 3px, #e8a9a9 3px 6px); }
 .chip.bq { background: repeating-linear-gradient(135deg, #fff3cd 0 3px, #f2b705 3px 6px); }
 
 /* Los usuarios normales no ven el estado de la conexión con Google (solo el administrador) */
@@ -399,12 +404,12 @@ body:not(.sec-labs) #seccionLabs { display: none; }
 .estado-lab { border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700; text-align: right; }
 .estado-lab.libre { background: #bfeed3; color: #05472a; }
 .estado-lab.ocupado { background: #ffe9a8; color: #6b4e00; }
-.estado-lab.cerrado { background: #d7e0ea; color: var(--m); }
+.estado-lab.cerrado { background: #fde0e0; color: #8f2d2d; }
 .barra { position: relative; height: 24px; border-radius: 6px; overflow: hidden; margin: 12px 0 4px; border: 2px solid var(--linea2); background: #bfeed3; }
 .seg { position: absolute; top: 0; bottom: 0; }
 .seg.libre { background: #bfeed3; }
 .seg.ocupado { background: repeating-linear-gradient(135deg, #fff3cd 0 6px, #f2b705 6px 12px); }
-.seg.cerrado { background: repeating-linear-gradient(135deg, #e7eef5 0 6px, #c3d0de 6px 12px); }
+.seg.cerrado { background: repeating-linear-gradient(135deg, #fde8e8 0 6px, #f2bcbc 6px 12px); }
 .horas { display: flex; justify-content: space-between; color: var(--m); }
 .usos { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
 
