@@ -12,13 +12,20 @@ const CFG = {
   DIAS_ANTICIPACION: 5,                    // hay que apartar con al menos 5 días de anticipación
   DIAS_LAB_DEFAULT: [1, 2, 3, 4, 5],      // lunes a viernes
   ADMIN: 'maestro123',                     // código del maestro: CÁMBIALO
-  VERSION: 'v19',                          // sube este número cuando cambies el script (la web lo compara)
+  VERSION: 'v22',                          // sube este número cuando cambies el script (la web lo compara)
   DIAS_HISTORIAL: 30                       // reservas más viejas pasan a "Historial"
 };
 
 // Material con el que arranca la hoja "Equipos" (después el administrador lo edita desde la web)
 const EQUIPOS_INICIALES = [['Celda', '#00D26A'], ['Brazo', '#2BC5C5'], ['Banda + Cámara', '#F2B705'], ['Cortadora', '#B79CFF']];
 const NOMBRE_OK = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 +\-\/().]{1,30}$/;
+const MATRICULA_OK = /^AL0\d{7}$/;
+function normalizarMatricula(valor) {
+  const matricula = String(valor || '').trim().toUpperCase();
+  if (/^\d{7}$/.test(matricula)) return 'AL0' + matricula;
+  if (MATRICULA_OK.test(matricula)) return matricula;
+  return /^AL\d{7}$/.test(matricula) ? 'AL0' + matricula.slice(2) : '';
+}
 
 const COLS = ['id', 'creado', 'fecha', 'inicio', 'fin', 'equipos', 'nombre', 'matricula', 'pin', 'estado', 'otros', 'personas'];
 const HOJAS = {
@@ -199,11 +206,11 @@ function crear(r) {
   const config = leerConfiguracionCelda();
   const duracionAutorizada = r.autorizarDuracion === true;
   if (duracionAutorizada && !adminOk(r)) return NO_ADMIN;
-  const nombre = String(r.nombre || '').trim(), mat = String(r.matricula || '').trim();
+  const nombre = String(r.nombre || '').trim(), mat = normalizarMatricula(r.matricula);
   const personas = r.personas === undefined || r.personas === null ? 1 : Number(r.personas);
   const fechas = [...new Set(Array.isArray(r.fechas) ? r.fechas : [r.fecha])];   // uno o varios días
   if (nombre.length < 3) return { error: 'Escribe tu nombre completo.' };
-  if (mat.length < 4) return { error: 'Escribe tu matrícula.' };
+  if (!mat) return { error: 'La matrícula debe iniciar con AL0 y tener exactamente 7 dígitos numéricos.' };
   if (!Number.isSafeInteger(personas) || personas < 1 || personas > CFG.MAX_PERSONAS) {
     return { error: 'El número de personas debe ser un entero entre 1 y ' + CFG.MAX_PERSONAS + '.' };
   }
@@ -258,8 +265,14 @@ function cancelar(o) {
   if (!x) return { error: 'Reserva no encontrada.' };
   if (o.admin) {
     if (!adminOk(o)) return NO_ADMIN;
-  } else if (!(x.matricula.toLowerCase() === String(o.matricula || '').trim().toLowerCase() && x.pin === String(o.codigo || '').trim())) {
-    return { error: 'Matrícula o código incorrectos.' };
+  } else {
+    const matricula = normalizarMatricula(o.matricula), codigo = String(o.codigo || '').trim();
+    if (!matricula || !/^\d{4}$/.test(codigo)) {
+      return { error: 'La matrícula debe iniciar con AL0 y tener 7 dígitos; el código de cancelación debe tener 4 dígitos.' };
+    }
+    if (!(normalizarMatricula(x.matricula) === matricula && x.pin === codigo)) {
+      return { error: 'Matrícula o código incorrectos.' };
+    }
   }
   if (o.alcance === 'material') {
     const columna = o.tipo === 'lab' ? 'implementos' : 'equipos';
@@ -543,12 +556,12 @@ function labImplementoQuitar(o) {
 function crearReservaLab(r) {
   const duracionAutorizada = r.autorizarDuracion === true;
   if (duracionAutorizada && !adminOk(r)) return NO_ADMIN;
-  const nombre = String(r.nombre || '').trim(), mat = String(r.matricula || '').trim();
+  const nombre = String(r.nombre || '').trim(), mat = normalizarMatricula(r.matricula);
   const personas = r.personas === undefined || r.personas === null ? 1 : Number(r.personas);
   const lab = leer('Laboratorios').find(l => l.id === r.lab);
   if (!lab) return { error: 'Laboratorio no encontrado.' };
   if (nombre.length < 3) return { error: 'Escribe tu nombre completo.' };
-  if (mat.length < 4) return { error: 'Escribe tu matrícula.' };
+  if (!mat) return { error: 'La matrícula debe iniciar con AL0 y tener exactamente 7 dígitos numéricos.' };
   const validos = leer('ImplementosLab').filter(i => i.lab === r.lab).map(i => i.nombre);
   const maxPersonas = maxPersonasLaboratorio(lab);
   if (!Number.isSafeInteger(personas) || personas < 1 || personas > maxPersonas) {
@@ -626,11 +639,25 @@ function labLiberar(o) {
   return { ok: 1 };
 }
 
+function adminReservas(o) {
+  if (!adminOk(o)) return NO_ADMIN;
+  const corte = new Date();
+  corte.setDate(corte.getDate() - CFG.DIAS_HISTORIAL);
+  const desde = Utilities.formatDate(corte, TZ, 'yyyy-MM-dd');
+  return {
+    res: leer('Reservas').filter(r => r.fecha >= desde)
+      .map(r => ({ id: r.id, matricula: normalizarMatricula(r.matricula) || r.matricula, pin: r.pin })),
+    resLab: leer('ReservasLab').filter(r => r.fecha >= desde)
+      .map(r => ({ id: r.id, matricula: normalizarMatricula(r.matricula) || r.matricula, pin: r.pin }))
+  };
+}
+
 const ACCIONES = {
   create: crear, createLab: crearReservaLab, cancel: cancelar, borrar: borrar, bloquear: bloquear, desbloquear: desbloquear,
   equipoGuardar: equipoGuardar, equipoQuitar: equipoQuitar, autorizar: autorizar, desautorizar: desautorizar,
   labGuardar: labGuardar, labQuitar: labQuitar, labOcupar: labOcupar, labLiberar: labLiberar,
   labImplementoGuardar: labImplementoGuardar, labImplementoQuitar: labImplementoQuitar,
   celdaGuardar: celdaGuardar,
-  admin: o => adminOk(o) ? { ok: 1 } : NO_ADMIN
+  admin: o => adminOk(o) ? { ok: 1 } : NO_ADMIN,
+  adminReservas
 };

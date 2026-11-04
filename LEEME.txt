@@ -29,7 +29,7 @@ GOOGLE SHEETS (cada vez que cambie Code.gs)
 MODO ADMINISTRADOR
   Botón "Admin" arriba a la derecha. Pide el código ADMIN de Code.gs y abre el panel:
   usa las pestañas para cambiar entre material de la celda, laboratorios, horarios y
-  excepciones, y ocupaciones y reservas. Abre un laboratorio para gestionar sus propios
+  excepciones, ocupaciones y reservas. Abre un laboratorio para gestionar sus propios
   implementos reservables y su horario. En "Celda de manufactura" también puedes
   configurar el nombre, horario, duración máxima de cada reserva y días de anticipación.
   Cuando el administrador aparta una celda, puede marcar la autorización para reservar
@@ -49,6 +49,15 @@ RESERVAS
   número entero de personas que asistirán (máximo 30; cada laboratorio puede tener un
   límite menor configurado por el administrador). Para cancelar, presiona la misma celda
   reservada y elige cancelar toda la reserva o solo el material seleccionado.
+  La matrícula inicia con el prefijo fijo "AL0"; escribe los 7 dígitos numéricos que siguen.
+  En el panel de administración se muestran la matrícula completa y el código de
+  cancelación junto a cada reserva; esos datos se solicitan de forma autenticada y
+  no forman parte de la lista pública.
+  La lista de reservas del panel tiene búsqueda y desplazamiento; los códigos se pueden
+  copiar desde la lista o desde el mensaje de confirmación de una nueva reserva.
+  En modo Google Sheets, las reservas y sus matrículas/códigos se guardan en las hojas
+  "Reservas" y "ReservasLab". En modo local de pruebas se guardan en el almacenamiento
+  local del navegador.
   Al cambiar Code.gs, publica una versión nueva de la aplicación web.
   La fecha seleccionada se muestra junto al número de personas. Para cancelar una reserva,
   presiona la misma celda reservada en la vista Día e ingresa tu matrícula y código de cancelación.

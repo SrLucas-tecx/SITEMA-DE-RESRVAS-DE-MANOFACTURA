@@ -102,6 +102,13 @@ button.on { background: var(--dark); color: #fff; border-color: var(--dark); pos
 
 label { display: block; font-size: 13px; color: var(--m); }
 label input, label select { width: 100%; margin-top: 3px; }
+.matricula-entrada { display: flex; margin-top: 3px; }
+.matricula-entrada .matricula-prefijo {
+  display: flex; align-items: center; padding: 8px 12px;
+  background: var(--gris); border: 1px solid var(--b); border-right: 0;
+  border-radius: 8px 0 0 8px; color: var(--t); font-weight: 700;
+}
+.matricula-entrada input { flex: 1; width: 0; min-width: 0; margin-top: 0; border-radius: 0 8px 8px 0; }
 .g { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 .reserva-detalles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
 
@@ -233,12 +240,14 @@ dialog h2 { margin: 0 0 4px; font-size: 18px; }
   font-size: 40px; font-weight: 800; letter-spacing: 8px; text-align: center;
   background: var(--dark); color: var(--green); border-radius: 10px; padding: 14px; margin: 10px 0;
 }
+#exitoCopiarEstado { min-height: 18px; margin-top: 6px; }
 
 /* ===== Mensajes, lista y modo administrador ===== */
 .msg { padding: 10px; border-radius: 8px; margin-top: 10px; background: var(--ok); }
 .msg.e { background: var(--err); color: var(--errt); }
 li { margin: 4px 0; }
-.can { text-decoration: line-through; color: var(--m); }
+.can { color: #b42318; }
+.admin-reserva-row.can .admin-reserva-texto { color: #b42318; text-decoration: line-through; }
 
 .banner-admin {
   display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
@@ -330,6 +339,9 @@ li { margin: 4px 0; }
 }
 .lista-admin .admin-lab-row button, .lista-admin .admin-reserva-row button { white-space: nowrap; }
 input[type="color"] { height: 40px; padding: 2px 4px; cursor: pointer; }
+#listaReservas { max-height: 360px; overflow-y: auto; overscroll-behavior: contain; padding-right: 8px; }
+#buscarReservas { width: 100%; margin: 4px 0 8px; }
+#contadorReservas { margin-bottom: 4px; }
 
 .admin-tabs {
   display: flex; gap: 8px; overflow-x: auto; margin: 0 0 16px; padding: 6px;

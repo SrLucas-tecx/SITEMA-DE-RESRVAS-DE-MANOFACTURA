@@ -79,8 +79,26 @@ function conexionPerdida() {
 // Lee las reservas (de Sheets o local) y redibuja
 async function cargar(silencioso) {
   try {
-    const datos = await (silencioso ? apiDirecta : api).list();
+    const lector = silencioso ? apiDirecta : api;
+    const datos = await lector.list();
     if (!datos.res) throw new Error('respuesta inválida');
+    if (estado.admin) {
+      try {
+        const privadas = await lector.adminReservas({ admin: estado.admin });
+        if (privadas.error) throw new Error(privadas.error);
+        datos.detallesReservas = {
+          celda: Object.fromEntries(privadas.res.map(r => [r.id, { matricula: r.matricula, pin: r.pin }])),
+          lab: Object.fromEntries(privadas.resLab.map(r => [r.id, { matricula: r.matricula, pin: r.pin }]))
+        };
+        datos.errorReservasAdmin = '';
+      } catch (e) {
+        datos.detallesReservas = null;
+        datos.errorReservasAdmin = e.message || 'No se pudieron cargar la matrícula y el código de cancelación.';
+      }
+    } else {
+      datos.detallesReservas = null;
+      datos.errorReservasAdmin = '';
+    }
     aplicarConfiguracionCelda(datos.configuracionCelda);
     estado.datos = datos;
     actualizarBloquesLab(datos.laboratorios || []);

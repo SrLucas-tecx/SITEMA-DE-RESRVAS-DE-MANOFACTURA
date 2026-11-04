@@ -1,7 +1,7 @@
 /* Modo administrador: pantalla propia para el material, los fines de semana autorizados,
    los bloqueos y las reservas. También las acciones rápidas desde el calendario. */
 import { CFG } from './config.js';
-import { $, aMinutos, aHora, escapar, hoy, sumarDias, nombreDia, diaSemana, esFinDeSemana } from './utils.js';
+import { $, aMinutos, aHora, escapar, hoy, sumarDias, nombreDia, diaSemana, esFinDeSemana, copiarTexto } from './utils.js';
 import { api } from './api.js';
 import { estado, listaEquipos, colorDe, autorizados, reservasLabTodos, laboratorios } from './estado.js';
 import { bloques } from './horario.js';
@@ -27,6 +27,8 @@ export function mostrarPantalla(cual) {
 
 function salir() {
   estado.admin = null;
+  estado.datos.detallesReservas = null;
+  estado.datos.errorReservasAdmin = '';
   mostrarPantalla('calendario');
 }
 
@@ -37,7 +39,7 @@ function abrirLogin() {
   $('#modalLogin').showModal();
 }
 
-async function entrar() {
+async function entrar(recargar) {
   const codigo = $('#acod').value.trim();
   let r;
   try { r = await api.admin(codigo); } catch (e) { r = sinConexion; }
@@ -45,6 +47,7 @@ async function entrar() {
 
   estado.admin = codigo;   // solo vive en memoria: al recargar la página se sale
   $('#modalLogin').close();
+  await recargar();
   mostrarPantalla('admin');
 }
 
@@ -53,6 +56,23 @@ const porFecha = (a, b) => (a.fecha + a.inicio).localeCompare(b.fecha + b.inicio
 let tipoReservaAdmin = 'celda';
 let dibujarListaEquipos = () => {};
 let vistaAdmin = 'celda';
+let filtroReservas = '';
+
+async function copiarCodigoAdmin(codigo, boton) {
+  const textoOriginal = boton.textContent;
+  try {
+    if (!await copiarTexto(codigo)) {
+      mensaje('No se pudo copiar el código. Selecciónalo y cópialo manualmente.');
+      return;
+    }
+    boton.textContent = 'Copiado';
+    setTimeout(() => {
+      if (boton.isConnected) boton.textContent = textoOriginal;
+    }, 1500);
+  } catch {
+    mensaje('No se pudo copiar el código. Selecciónalo y cópialo manualmente.');
+  }
+}
 
 function mostrarVistaAdmin(vista) {
   vistaAdmin = vista;
@@ -134,21 +154,41 @@ export function dibujarAdmin() {
     ...estado.datos.res.filter(x => x.fecha >= hoyStr).map(x => ({ ...x, tipo: 'celda' })),
     ...reservasLabTodos().filter(x => x.fecha >= hoyStr).map(x => ({ ...x, tipo: 'lab' }))
   ];
-  $('#listaReservas').innerHTML = reservasAdmin.sort(porFecha).slice(0, 60)
+  const filtro = $('#buscarReservas').value.trim().toLocaleLowerCase();
+  filtroReservas = $('#buscarReservas').value;
+  const resultados = reservasAdmin.sort(porFecha).filter(x => {
+    const laboratorio = x.tipo === 'lab' ? laboratorios().find(l => l.id === x.lab) : null;
+    const privados = estado.datos.detallesReservas?.[x.tipo]?.[x.id];
+    const texto = [
+      x.fecha, x.inicio, x.fin, x.nombre, x.estado, x.otros,
+      x.equipos.join(' '), laboratorio?.nombre,
+      privados?.matricula, privados?.pin, x.personas
+    ].join(' ').toLocaleLowerCase();
+    return texto.includes(filtro);
+  });
+  $('#contadorReservas').textContent = `Mostrando ${resultados.length} de ${reservasAdmin.length} reservas.`;
+  $('#listaReservas').innerHTML = resultados
     .map(x => {
       const activa = x.estado === 'Activa';
       const lab = x.tipo === 'lab' ? laboratorios().find(l => l.id === x.lab) : null;
-      return `<li class="admin-reserva-row ${activa ? '' : 'can'}"><span class="admin-row-info"><b>${x.fecha}</b> · ${x.inicio}–${x.fin} · ${lab ? escapar(lab.nombre) + ' · ' : ''}${escapar(x.equipos.join(', '))} · ${escapar(x.nombre)}${x.personas ? ` · ${escapar(String(x.personas))} personas` : ''}${activa ? '' : ' (cancelado)'}</span>` +
+      const datosPrivados = estado.datos.detallesReservas?.[x.tipo]?.[x.id];
+      return `<li class="admin-reserva-row ${activa ? '' : 'can'}"><span class="admin-row-info"><span class="admin-reserva-texto"><b>${x.fecha}</b> · ${x.inicio}–${x.fin} · ${lab ? escapar(lab.nombre) + ' · ' : ''}${escapar(x.equipos.join(', '))} · ${escapar(x.nombre)}${datosPrivados ? ` · Matrícula: ${escapar(datosPrivados.matricula)} · Código de cancelación: <b>${escapar(datosPrivados.pin)}</b>` : ''}${x.personas ? ` · ${escapar(String(x.personas))} personas` : ''}${activa ? '' : ' (cancelado)'}</span>${datosPrivados ? ` <button type="button" data-copy-code="${escapar(datosPrivados.pin)}">Copiar código</button>` : ''}</span>` +
         `<span class="acc">${activa ? `<button data-r-cancel="${x.id}" data-r-tipo="${x.tipo}">Cancelar</button>` : ''}` +
         `<button class="peligro" data-r-del="${x.id}" data-r-tipo="${x.tipo}">Eliminar</button></span></li>`;
-    }).join('') || '<li class="sub">Sin reservas próximas.</li>';
+    }).join('') || `<li class="sub">${reservasAdmin.length ? 'No hay reservas que coincidan con la búsqueda.' : 'Sin reservas próximas.'}</li>`;
+  if (estado.datos.errorReservasAdmin) {
+    $('#listaReservas').insertAdjacentHTML('afterbegin',
+      `<li class="msg e">${escapar('No fue posible cargar la matrícula y el código de cancelación: ' + estado.datos.errorReservasAdmin)}</li>`);
+  }
   dibujarAdminLabs();
 }
 
 /* ---------- Panel: acciones ---------- */
 function clicPanel(ev, recargar) {
   const d = ev.target.dataset, admin = estado.admin;
-  if (d.autDel) {
+  if (d.copyCode) {
+    copiarCodigoAdmin(d.copyCode, ev.target);
+  } else if (d.autDel) {
     ejecutar(`¿Quitar la autorización del ${d.autDel}?`, () => api.desautorizar({ admin, fecha: d.autDel }), recargar);
   } else if (d.bqDel) {
     const [fecha, inicio, fin] = d.bqDel.split('|');
@@ -179,7 +219,10 @@ export function abrirAdminReserva(id, tipo = 'celda') {
   estado.seleccionada = id;
   const x = (tipo === 'lab' ? reservasLabTodos() : estado.datos.res).find(y => y.id === id);
   const lab = tipo === 'lab' ? laboratorios().find(l => l.id === x.lab) : null;
+  const datosPrivados = estado.datos.detallesReservas?.[tipo]?.[x.id];
   $('#ainfo').innerHTML = `<b>${escapar(x.nombre)}</b><br>${x.fecha} · ${x.inicio}–${x.fin}${lab ? `<br>${escapar(lab.nombre)}` : ''}<br>${escapar(x.equipos.join(', '))}` +
+    (datosPrivados ? `<br>Matrícula: ${escapar(datosPrivados.matricula)}<br>Código de cancelación: ${escapar(datosPrivados.pin)}` : estado.datos.errorReservasAdmin
+      ? `<br>${escapar('Datos privados de la reserva no disponibles: ' + estado.datos.errorReservasAdmin)}` : '') +
     (x.personas ? `<br>Personas: ${escapar(String(x.personas))}` : '') +
     (x.otros ? `<br>Otros: ${escapar(x.otros)}` : '');
   $('#adout').innerHTML = '';
@@ -272,8 +315,8 @@ export function iniciarAdmin(recargar, verLab) {
   // Entrar, salir y cambiar de pantalla
   $('#abrirLogin').onclick = abrirLogin;
   $('#cerrarLogin').onclick = () => $('#modalLogin').close();
-  $('#entrarAdmin').onclick = entrar;
-  $('#acod').onkeydown = ev => { if (ev.key === 'Enter') entrar(); };
+  $('#entrarAdmin').onclick = () => entrar(recargar);
+  $('#acod').onkeydown = ev => { if (ev.key === 'Enter') entrar(recargar); };
   $('#irPanel').onclick = () => mostrarPantalla('admin');
   $('#verCalendario').onclick = () => mostrarPantalla('calendario');
   $('#salirAdmin').onclick = salir;
@@ -285,6 +328,8 @@ export function iniciarAdmin(recargar, verLab) {
 
   // Panel
   $('#pantallaAdmin').onclick = ev => clicPanel(ev, recargar);
+  $('#buscarReservas').value = filtroReservas;
+  $('#buscarReservas').oninput = () => dibujarAdmin();
   $('#guardarConfigCelda').onclick = () => guardarConfiguracionCelda(recargar);
   $('#celdaAbre').onchange = actualizarTopeDuracionCelda;
   $('#celdaCierra').onchange = actualizarTopeDuracionCelda;

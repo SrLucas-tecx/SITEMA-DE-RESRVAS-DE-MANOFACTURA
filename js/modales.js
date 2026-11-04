@@ -1,7 +1,7 @@
 /* Popups: apartar una reserva (uno o varios días) y cancelarla */
 import { CFG } from './config.js';
-import { $, aMinutos, aHora, ahora, escapar, nombreDia, diaDelMes, sumarDias, diaSemana } from './utils.js';
-import { validar, fechaMinima } from './validacion.js';
+import { $, aMinutos, aHora, ahora, escapar, nombreDia, diaDelMes, sumarDias, diaSemana, copiarTexto } from './utils.js';
+import { validar, fechaMinima, matriculaValida, normalizarMatricula } from './validacion.js';
 import { api } from './api.js';
 import { estado, nombresEquipos, colorDe, autorizados, diaProhibido, laboratorios, implementosDeLab, reservasLabTodos, usoLabTodos } from './estado.js';
 import { bloques } from './horario.js';
@@ -230,7 +230,7 @@ async function apartar(recargar) {
   agregarFecha();   // si dejaron una fecha escrita sin agregar, se cuenta
   const r = {
     nombre: $('#nombre').value,
-    matricula: $('#matricula').value,
+    matricula: normalizarMatricula($('#matricula').value),
     otros: $('#otros').value.trim(),
     inicio: inicio,
     fin: aHora(aMinutos(inicio) + 30 * $('#dur').value),
@@ -269,7 +269,7 @@ async function apartar(recargar) {
       const diasAnticipacion = reservaLab.diasAnticipacion ?? CFG.DIAS_ANTICIPACION;
       const minimo = fechaMinima(diasAnticipacion);
       if (!r.nombre.trim() || r.nombre.trim().length < 3) error = 'Escribe tu nombre completo.';
-      else if (!r.matricula.trim() || r.matricula.trim().length < 4) error = 'Escribe tu matrícula.';
+      else if (!matriculaValida(r.matricula)) error = 'La matrícula debe iniciar con AL0 y tener exactamente 7 dígitos numéricos.';
       else if (!equiposDia.length) error = 'Elige al menos un implemento para este día.';
       else if (f < minimo) error = `Este laboratorio requiere ${diasAnticipacion} días de anticipación. Primer día disponible: ${minimo}.`;
       else if (!disponibleLab(reservaLab, f)) error = 'Este laboratorio no está disponible ese día de la semana.';
@@ -317,11 +317,21 @@ async function apartar(recargar) {
 }
 
 async function cancelar(recargar) {
+  const matricula = normalizarMatricula($('#cmat').value);
+  const codigo = $('#ccod').value.trim();
+  if (!matriculaValida(matricula)) {
+    $('#cout').innerHTML = '<div class="msg e">La matrícula debe iniciar con AL0 y tener exactamente 7 dígitos numéricos.</div>';
+    return;
+  }
+  if (!/^\d{4}$/.test(codigo)) {
+    $('#cout').innerHTML = '<div class="msg e">Escribe el código de cancelación de 4 dígitos.</div>';
+    return;
+  }
   let respuesta;
   try {
     respuesta = await api.cancel({
-      id: estado.seleccionada, tipo: tipoCancelar, matricula: $('#cmat').value,
-      codigo: $('#ccod').value, alcance: $('#cAlcance').value,
+      id: estado.seleccionada, tipo: tipoCancelar, matricula,
+      codigo, alcance: $('#cAlcance').value,
       equipo: equipoCancelar
     });
   } catch (e) {
@@ -344,6 +354,17 @@ async function cancelar(recargar) {
 export function iniciarModales(recargar) {
   // Llenar selects y casillas del formulario
   $('#inicio').innerHTML = bloques.map(t => `<option>${aHora(t)}</option>`).join('');
+  for (const selector of ['#matricula', '#cmat']) {
+    $(selector).oninput = ev => { ev.target.value = ev.target.value.replace(/\D/g, '').slice(0, 7); };
+  }
+  $('#copiarCodigo').onclick = async () => {
+    try {
+      const copiado = await copiarTexto($('#codigo').textContent);
+      $('#exitoCopiarEstado').textContent = copiado ? 'Código copiado.' : 'No se pudo copiar; selecciona el código para copiarlo.';
+    } catch {
+      $('#exitoCopiarEstado').textContent = 'No se pudo copiar; selecciona el código para copiarlo.';
+    }
+  };
   actualizarDuraciones();
   $('#inicio').onchange = actualizarDuraciones;
   $('#autorizarTiempoExtendido').onchange = actualizarDuraciones;

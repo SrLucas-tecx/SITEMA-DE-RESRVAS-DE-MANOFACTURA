@@ -48,6 +48,31 @@ export function escapar(texto) {
   return String(texto).replace(/[&<>"]/g, c => mapa[c]);
 }
 
+export async function copiarTexto(texto) {
+  const valor = String(texto || '');
+  if (!valor) return false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(valor);
+      return true;
+    }
+  } catch {
+    // Try the fallback for browsers that block clipboard access.
+  }
+  const campo = document.createElement('textarea');
+  campo.value = valor;
+  campo.setAttribute('readonly', '');
+  campo.style.position = 'fixed';
+  campo.style.opacity = '0';
+  document.body.append(campo);
+  campo.select();
+  try {
+    return document.execCommand('copy');
+  } finally {
+    campo.remove();
+  }
+}
+
 export function etiquetaCalendario(texto) {
   const valor = String(texto);
   const caracteres = Array.from(valor);

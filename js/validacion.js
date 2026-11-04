@@ -7,12 +7,19 @@ export const fechaMinima = (dias = CFG.DIAS_ANTICIPACION) => sumarDias(hoy(), di
 
 // Nombre permitido para un material (letras, números, espacios y + - / ( ) .)
 export const NOMBRE_EQUIPO = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 +\-\/().]{1,30}$/;
+export const normalizarMatricula = matricula => {
+  const valor = String(matricula || '').trim().toUpperCase();
+  if (/^\d{7}$/.test(valor)) return 'AL0' + valor;
+  if (/^AL0\d{7}$/.test(valor)) return valor;
+  return /^AL\d{7}$/.test(valor) ? 'AL0' + valor.slice(2) : null;
+};
+export const matriculaValida = matricula => normalizarMatricula(matricula) !== null;
 
 // Devuelve un texto con el error, o null si la reserva es válida.
 // autorizados = sábados o domingos que el administrador permitió: [{ fecha, motivo }]
 export function validar(r, reservas, bloqueos, autorizados = [], opciones = {}) {
   if (!r.nombre || r.nombre.trim().length < 3) return 'Escribe tu nombre completo.';
-  if (!r.matricula || r.matricula.trim().length < 4) return 'Escribe tu matrícula.';
+  if (!matriculaValida(r.matricula)) return 'La matrícula debe iniciar con AL0 y tener exactamente 7 dígitos numéricos.';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(r.fecha)) return 'Elige una fecha.';
   if (!r.equipos.length) return 'Elige al menos una parte de la celda.';
 

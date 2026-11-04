@@ -1,6 +1,6 @@
 /* Almacenamiento: modo local (pruebas) o Google Sheets. El resto de la app solo usa `api` */
 import { CFG } from './config.js';
-import { validar, NOMBRE_EQUIPO } from './validacion.js';
+import { validar, NOMBRE_EQUIPO, matriculaValida, normalizarMatricula } from './validacion.js';
 import { hoy, esFinDeSemana, aMinutos, ahora, sumarDias, diaSemana } from './utils.js';
 import { conIndicador } from './procesando.js';
 
@@ -78,6 +78,8 @@ const Local = {
 
   async create(r) {
     const todas = cargarLocal();
+    const matricula = normalizarMatricula(r.matricula);
+    if (!matricula) return { error: 'La matrícula debe iniciar con AL0 y tener exactamente 7 dígitos numéricos.' };
     const duracionAutorizada = r.autorizarDuracion === true && esAdminLocal(r);
     if (r.autorizarDuracion === true && !duracionAutorizada) return NO_ADMIN;
     const maxBloques = Number(configuracionCeldaLocal().maxBloques) || CFG.MAX_BLOQUES_CELDA;
@@ -108,7 +110,7 @@ const Local = {
     const pin = String(1000 + Math.floor(Math.random() * 9000));   // un código para todos los días
     r.fechas.forEach((f, i) => {
       const { fechas, equiposPorFecha, variosDias, admin, autorizarDuracion, ...resto } = r;
-      todas.push({ ...resto, equipos: equiposParaFecha(r, f), personas, fecha: f, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
+      todas.push({ ...resto, matricula, equipos: equiposParaFecha(r, f), personas, fecha: f, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
     });
     guardarLocal(todas);
     return { ok: 1, pin, n: r.fechas.length };
@@ -121,8 +123,11 @@ const Local = {
 
     const esAdmin = esAdminLocal(o);
     if (o.admin && !esAdmin) return NO_ADMIN;
+    if (!esAdmin && (!matriculaValida(o.matricula) || !/^\d{4}$/.test(String(o.codigo || '').trim()))) {
+      return { error: 'La matrícula debe iniciar con AL0 y tener 7 dígitos; el código de cancelación debe tener 4 dígitos.' };
+    }
     const datosCorrectos = !o.admin &&
-      x.matricula.toLowerCase() === String(o.matricula || '').trim().toLowerCase() &&
+      normalizarMatricula(x.matricula) === normalizarMatricula(o.matricula) &&
       x.pin === String(o.codigo || '').trim();
     if (!esAdmin && !datosCorrectos) return { error: 'Matrícula o código incorrectos.' };
 
@@ -136,6 +141,14 @@ const Local = {
     if (o.tipo === 'lab') localStorage.setItem(LSRL, JSON.stringify(todas));
     else guardarLocal(todas);
     return { ok: 1, parcial: o.alcance === 'material' };
+  },
+
+  async adminReservas(o) {
+    if (!esAdminLocal(o)) return NO_ADMIN;
+    return {
+      res: cargarLocal().map(({ id, matricula, pin }) => ({ id, matricula: normalizarMatricula(matricula) || matricula, pin })),
+      resLab: reservasLabLocal().map(({ id, matricula, pin }) => ({ id, matricula: normalizarMatricula(matricula) || matricula, pin }))
+    };
   },
 
   // ----- Administrador -----
@@ -342,6 +355,7 @@ const Local = {
     const duracionAutorizada = r.autorizarDuracion === true && esAdminLocal(r);
     if (r.autorizarDuracion === true && !duracionAutorizada) return NO_ADMIN;
     const personas = numeroPersonas(r.personas);
+    const matricula = normalizarMatricula(r.matricula);
     const lab = leerLS(LSL, []).find(l => l.id === r.lab);
     if (!lab) return { error: 'Laboratorio no encontrado.' };
     const maxPersonas = maxPersonasLab(lab);
@@ -350,7 +364,7 @@ const Local = {
     }
     const implementos = implementosLocal().filter(i => i.lab === r.lab).map(i => i.nombre);
     if (!r.nombre || r.nombre.trim().length < 3) return { error: 'Escribe tu nombre completo.' };
-    if (!r.matricula || r.matricula.trim().length < 4) return { error: 'Escribe tu matrícula.' };
+    if (!matricula) return { error: 'La matrícula debe iniciar con AL0 y tener exactamente 7 dígitos numéricos.' };
     if (!Array.isArray(r.fechas) || !r.fechas.length || r.fechas.length > CFG.MAX_DIAS) return { error: `Elige entre 1 y ${CFG.MAX_DIAS} fechas.` };
     if (r.variosDias === false && r.fechas.length > 1) return { error: 'Solo se permite una fecha si no activas la reserva de varios días.' };
     if (r.fechas.some(f => !/^\d{4}-\d{2}-\d{2}$/.test(f))) return { error: 'Fecha inválida.' };
@@ -385,7 +399,7 @@ const Local = {
     const pin = String(1000 + Math.floor(Math.random() * 9000));
     r.fechas.forEach((fecha, i) => {
       const { fechas, equiposPorFecha, variosDias, admin, autorizarDuracion, ...resto } = r;
-      reservas.push({ ...resto, equipos: equiposParaFecha(r, fecha), personas, fecha, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
+      reservas.push({ ...resto, matricula, equipos: equiposParaFecha(r, fecha), personas, fecha, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i, pin, estado: 'Activa' });
     });
     localStorage.setItem(LSRL, JSON.stringify(reservas));
     return { ok: 1, pin, n: r.fechas.length };
@@ -432,6 +446,7 @@ const Remote = {
   post(datos) { return pedir(CFG.API_URL, { method: 'POST', body: JSON.stringify(datos) }); },
   create(r) { return this.post({ action: 'create', ...r }); },
   cancel(o) { return this.post({ action: 'cancel', ...o }); },
+  adminReservas(o) { return this.post({ action: 'adminReservas', ...o }); },
   admin(codigo) { return this.post({ action: 'admin', admin: codigo }); },
   celdaGuardar(o) { return this.post({ action: 'celdaGuardar', ...o }); },
   borrar(o) { return this.post({ action: 'borrar', ...o }); },
@@ -456,7 +471,7 @@ const base = CFG.API_URL ? Remote : Local;
 // Cada llamada muestra el indicador "Procesando…" mientras espera al servidor
 const TEXTOS = {
   list: 'Cargando…', create: 'Guardando tu reserva…', createLab: 'Guardando tu reserva…',
-  cancel: 'Cancelando…', admin: 'Verificando…', borrar: 'Eliminando…',
+  cancel: 'Cancelando…', admin: 'Verificando…', adminReservas: 'Cargando matrículas…', borrar: 'Eliminando…',
   celdaGuardar: 'Guardando configuración…',
   labImplementoGuardar: 'Guardando implemento…', labImplementoQuitar: 'Quitando implemento…'
 };

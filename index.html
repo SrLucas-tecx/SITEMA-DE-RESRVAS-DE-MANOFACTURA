@@ -129,7 +129,8 @@
       <button class="on" data-admin-view="celda">Celda de manufactura</button>
       <button data-admin-view="laboratorios">Laboratorios</button>
       <button data-admin-view="horarios">Horarios y excepciones</button>
-      <button data-admin-view="reservas">Ocupaciones y reservas</button>
+      <button data-admin-view="ocupaciones">Ocupaciones</button>
+      <button data-admin-view="reservas">Reservas</button>
     </nav>
 
     <section class="admin-screen" id="adminVistaCelda" data-admin-screen="celda">
@@ -188,18 +189,22 @@
       </div>
     </section>
 
+    <section class="admin-screen" id="adminVistaOcupaciones" data-admin-screen="ocupaciones" hidden>
+      <section class="card" id="adminUsoLab">
+        <div class="cab"><b>Ocupaciones de laboratorios</b><button class="p" id="nuevoUso">+ Registrar</button></div>
+        <p class="sub">Clases, prácticas u otros usos que bloquean todo el laboratorio. Puedes repetirlas cada semana.</p>
+        <ul class="lista-admin" id="listaUsoLab"></ul>
+      </section>
+    </section>
+
     <section class="admin-screen" id="adminVistaReservas" data-admin-screen="reservas" hidden>
-      <div class="admin-grid">
-        <section class="card" id="adminUsoLab">
-          <div class="cab"><b>Ocupaciones de laboratorios</b><button class="p" id="nuevoUso">+ Registrar</button></div>
-          <p class="sub">Clases, prácticas u otros usos que bloquean todo el laboratorio. Puedes repetirlas cada semana.</p>
-          <ul class="lista-admin" id="listaUsoLab"></ul>
-        </section>
-        <section class="card">
-          <div class="cab"><b>Reservas próximas</b></div>
-          <ul class="lista-admin" id="listaReservas"></ul>
-        </section>
-      </div>
+      <section class="card">
+        <div class="cab"><b>Reservas</b></div>
+        <label for="buscarReservas">Buscar por fecha, persona, matrícula, código o recurso</label>
+        <input type="search" id="buscarReservas" placeholder="Escribe para filtrar las reservas" autocomplete="off">
+        <p class="sub" id="contadorReservas" aria-live="polite"></p>
+        <ul class="lista-admin" id="listaReservas"></ul>
+      </section>
     </section>
   </main>
 
@@ -209,7 +214,9 @@
       <h2 id="apartTitulo">Apartar</h2>
       <div class="g" style="margin-top:10px">
         <label>Nombre completo <input id="nombre" autocomplete="name"></label>
-        <label>Matrícula <input id="matricula"></label>
+        <label>Matrícula
+          <span class="matricula-entrada"><span class="matricula-prefijo" aria-hidden="true">AL0</span><input id="matricula" type="text" inputmode="numeric" minlength="7" maxlength="7" pattern="[0-9]{7}" autocomplete="off" title="Ingresa los 7 dígitos después del prefijo AL0" aria-label="Siete dígitos de la matrícula" required></span>
+        </label>
         <label>Hora de inicio <select id="inicio"></select></label>
         <label>Duración <select id="dur"></select></label>
       </div>
@@ -251,6 +258,8 @@
       <h2>¡Reserva lista!</h2>
       <p>Tu código de cancelación es:</p>
       <div class="codigo" id="codigo"></div>
+      <button type="button" id="copiarCodigo">Copiar código</button>
+      <p class="sub" id="exitoCopiarEstado" aria-live="polite"></p>
       <p class="sub" id="exitoDias"></p>
       <p class="sub">Guárdalo: lo necesitas junto con tu matrícula para cancelar.</p>
       <div class="acciones"><button class="p" id="cerrarExito">Entendido</button></div>
@@ -266,8 +275,10 @@
       <span class="sub" id="cAlcanceAyuda"></span>
     </label>
     <div class="g">
-      <label>Matrícula <input id="cmat"></label>
-      <label>Código de cancelación <input id="ccod"></label>
+      <label>Matrícula
+        <span class="matricula-entrada"><span class="matricula-prefijo" aria-hidden="true">AL0</span><input id="cmat" type="text" inputmode="numeric" minlength="7" maxlength="7" pattern="[0-9]{7}" autocomplete="off" title="Ingresa los 7 dígitos después del prefijo AL0" aria-label="Siete dígitos de la matrícula" required></span>
+      </label>
+      <label>Código de cancelación <input id="ccod" type="text" inputmode="numeric" minlength="4" maxlength="4" pattern="[0-9]{4}" autocomplete="off" title="Ingresa el código de 4 dígitos" required></label>
     </div>
     <div id="cout"></div>
     <div class="acciones">
